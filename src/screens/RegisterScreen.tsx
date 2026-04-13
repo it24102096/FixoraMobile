@@ -16,28 +16,55 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { authService } from '../services/authService';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
-const LoginScreen: React.FC<Props> = ({ navigation }) => {
+const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = async () => {
+  const handleRegister = async () => {
     setErrorMsg('');
-    if (!email.trim() || !password.trim()) {
-      setErrorMsg('Please enter your email and password.');
+
+    // Validation
+    if (!name.trim() || !email.trim() || !phone.trim() || !password.trim()) {
+      setErrorMsg('Please fill in all fields.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMsg('Passwords do not match.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setErrorMsg('Please enter a valid email address.');
       return;
     }
 
     setLoading(true);
     try {
-      await authService.login({ email: email.trim(), password });
+      await authService.register({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        password,
+      });
       navigation.replace('Home');
     } catch (error: any) {
-      const message = error?.response?.data?.message || 'Login failed. Please check your credentials.';
+      const message = error?.response?.data?.message || 'Registration failed. Please try again.';
       setErrorMsg(message);
     } finally {
       setLoading(false);
@@ -63,14 +90,27 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sign In</Text>
-          <Text style={styles.cardSubtitle}>Access your technician dashboard</Text>
+          <Text style={styles.cardTitle}>Create Account</Text>
+          <Text style={styles.cardSubtitle}>Join as a technician</Text>
 
           {errorMsg ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
           ) : null}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Full Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="John Doe"
+              placeholderTextColor="#4a658a"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              editable={!loading}
+            />
+          </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Email</Text>
@@ -83,6 +123,20 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Phone Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="+1 (555) 123-4567"
+              placeholderTextColor="#4a658a"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              editable={!loading}
             />
           </View>
 
@@ -96,10 +150,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                editable={!loading}
               />
               <TouchableOpacity
                 style={styles.showHideBtn}
                 onPress={() => setShowPassword(!showPassword)}
+                disabled={loading}
               >
                 <Text style={styles.showHideText}>
                   {showPassword ? 'Hide' : 'Show'}
@@ -108,26 +164,46 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.forgotBtn}>
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Confirm Password</Text>
+            <View style={styles.passwordRow}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="••••••••"
+                placeholderTextColor="#4a658a"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                editable={!loading}
+              />
+              <TouchableOpacity
+                style={styles.showHideBtn}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={loading}
+              >
+                <Text style={styles.showHideText}>
+                  {showConfirmPassword ? 'Hide' : 'Show'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           <TouchableOpacity
-            style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
-            onPress={handleLogin}
+            style={[styles.registerBtn, loading && styles.registerBtnDisabled]}
+            onPress={handleRegister}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#071428" />
             ) : (
-              <Text style={styles.loginBtnText}>Login</Text>
+              <Text style={styles.registerBtnText}>Create Account</Text>
             )}
           </TouchableOpacity>
 
-          <View style={styles.signUpContainer}>
-            <Text style={styles.signUpText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')} disabled={loading}>
-              <Text style={styles.signUpLink}>Sign Up</Text>
+          <View style={styles.signInContainer}>
+            <Text style={styles.signInText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.goBack()} disabled={loading}>
+              <Text style={styles.signInLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -149,7 +225,7 @@ const styles = StyleSheet.create({
   },
   brandContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   logoCircle: {
     width: 80,
@@ -221,7 +297,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputLabel: {
     fontSize: 13,
@@ -264,49 +340,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  forgotBtn: {
-    alignSelf: 'flex-end',
-    marginBottom: 28,
-  },
-  forgotText: {
-    color: '#00d4e8',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  loginBtn: {
+  registerBtn: {
     backgroundColor: '#00d4e8',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
+    marginTop: 8,
     shadowColor: '#00d4e8',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
   },
-  loginBtnDisabled: {
+  registerBtnDisabled: {
     opacity: 0.7,
   },
-  loginBtnText: {
+  registerBtnText: {
     color: '#071428',
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  signUpContainer: {
+  signInContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 20,
   },
-  signUpText: {
+  signInText: {
     color: '#6b82a3',
     fontSize: 14,
   },
-  signUpLink: {
+  signInLink: {
     color: '#00d4e8',
     fontSize: 14,
     fontWeight: '600',
   },
 });
 
-export default LoginScreen;
+export default RegisterScreen;

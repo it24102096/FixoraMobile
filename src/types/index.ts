@@ -15,6 +15,11 @@ export interface AuthCredentials {
   password: string;
 }
 
+export interface RegistrationCredentials extends AuthCredentials {
+  name: string;
+  phone: string;
+}
+
 // ─── Job ────────────────────────────────────────────────────────────────────
 
 export type JobStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
@@ -115,6 +120,7 @@ export interface TicketMessage {
 
 export type RootStackParamList = {
   Login: undefined;
+  Register: undefined;
   Home: undefined;
   Jobs: undefined;
   JobDetails: { jobId: string };
