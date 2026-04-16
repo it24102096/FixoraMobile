@@ -12,6 +12,7 @@ import HomeScreen from '../screens/HomeScreen';
 import JobsScreen from '../screens/JobsScreen';
 import JobDetailsScreen from '../screens/JobDetailsScreen';
 import AppointmentScreen from '../screens/AppointmentScreen';
+import PaymentsListScreen from '../screens/PaymentsListScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import SupportScreen from '../screens/SupportScreen';
 
@@ -54,6 +55,7 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Jobs" component={JobsScreen} />
         <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
         <Stack.Screen name="Appointment" component={AppointmentScreen} />
+        <Stack.Screen name="PaymentsList" component={PaymentsListScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
         <Stack.Screen name="Support" component={SupportScreen} />
       </Stack.Navigator>

@@ -125,6 +125,7 @@ export type RootStackParamList = {
   Jobs: undefined;
   JobDetails: { jobId: string };
   Appointment: { appointmentId?: string; jobId?: string };
+  PaymentsList: undefined;
   Payment: { jobId: string; paymentId?: string };
   Support: undefined;
 };

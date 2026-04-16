@@ -78,6 +78,13 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.fixoramobile"
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/jni/CMakeLists.txt"
+            version "3.31.6"
+        }
+    }
     defaultConfig {
         applicationId "com.fixoramobile"
         minSdkVersion rootProject.ext.minSdkVersion

@@ -1,11 +1,12 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiResponse, PaginatedResponse } from '../types';
+import { API_BASE_URL, API_TIMEOUT } from '../config/env';
 
-// ─── Configuration ──────────────────────────────────────────────────────────
+// ─── Configuration ──────────────────────────────────────────────────────
 
-const BASE_URL = 'https://api.fixora.app/v1'; // Replace with actual API URL
-const TIMEOUT = 15000;
+const BASE_URL = API_BASE_URL; // Configured via config/env.ts
+const TIMEOUT = API_TIMEOUT;
 
 // ─── Axios Instance ──────────────────────────────────────────────────────────
 
