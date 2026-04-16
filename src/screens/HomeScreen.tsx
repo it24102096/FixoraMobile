@@ -118,7 +118,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           {[
             { label: 'Jobs', icon: '🔧', screen: 'Jobs' as const },
             { label: 'Appointments', icon: '📅', screen: 'Appointment' as const },
-            { label: 'Payments', icon: '💳', screen: 'Payment' as const },
+            { label: 'Payments', icon: '💳', screen: 'PaymentsList' as const },
             { label: 'Support', icon: '💬', screen: 'Support' as const },
           ].map(item => (
             <TouchableOpacity
