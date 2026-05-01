@@ -256,10 +256,10 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
   }
 
   const technicianShare = payment
-    ? (payment.technicianEarnings ?? payment.amount)
+    ? (payment.technicianEarnings || (payment.total - payment.tax))
     : 0;
   const platformShare = payment
-    ? (payment.platformFee ?? Math.max(payment.total - payment.amount, 0))
+    ? (payment.platformFee || payment.tax)
     : 0;
 
   return (
@@ -383,9 +383,14 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
                   </View>
                 )}
                 <View style={styles.totalRow}>
-                  <Text style={[styles.totalLabel, { color: '#4a7c59' }]}>
-                    👨‍🔧 Technician Payout
-                  </Text>
+                  <View>
+                    <Text style={[styles.totalLabel, { color: '#4a7c59' }]}>
+                      👨‍🔧 Technician Payout
+                    </Text>
+                    <Text style={{ color: '#6a9c79', fontSize: 11, marginTop: 2 }}>
+                      after tax deduction
+                    </Text>
+                  </View>
                   <Text style={[styles.totalValue, { color: '#4a7c59', fontWeight: '700' }]}>
                     {payment.currency} {technicianShare.toFixed(2)}
                   </Text>
