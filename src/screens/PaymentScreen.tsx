@@ -15,6 +15,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Payment, PaymentMethod } from '../types';
 import { paymentService } from '../services/paymentService';
+import { authService } from '../services/authService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Payment'>;
 
@@ -47,6 +48,7 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('card');
   const [cardDetails, setCardDetails] = useState<CardDetails>({
     cardNumber: '',
@@ -91,6 +93,9 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
   const loadPayment = useCallback(async () => {
     setLoading(true);
     try {
+      const user = await authService.getCurrentUser();
+      setIsAdmin(user?.role === 'admin');
+
       let data: Payment;
       if (paymentId) {
         data = await paymentService.getPaymentById(paymentId);
@@ -124,7 +129,11 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
           ],
         );
       } else {
-        Alert.alert('Error', 'Failed to load payment details.');
+        const msg =
+          error?.response?.data?.message ||
+          error?.message ||
+          'Failed to load payment details.';
+        Alert.alert('Error', msg);
       }
     } finally {
       setLoading(false);
@@ -246,6 +255,13 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
+  const technicianShare = payment
+    ? (payment.technicianEarnings ?? payment.amount)
+    : 0;
+  const platformShare = payment
+    ? (payment.platformFee ?? Math.max(payment.total - payment.amount, 0))
+    : 0;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" />
@@ -316,7 +332,7 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Line Items */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Line Items</Text>
-            {payment.lineItems.map((item, idx) => (
+            {(payment.lineItems || []).map((item, idx) => (
               <View key={idx} style={styles.lineItem}>
                 <View style={styles.lineItemLeft}>
                   <Text style={styles.lineItemDesc}>{item.description}</Text>
@@ -351,6 +367,31 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
                 {payment.currency} {payment.total.toFixed(2)}
               </Text>
             </View>
+
+            {/* Earnings split — shown only after payment is paid */}
+            {payment.status === 'paid' && (
+              <>
+                <View style={styles.splitDivider} />
+                {isAdmin && (
+                  <View style={styles.totalRow}>
+                    <Text style={[styles.totalLabel, { color: '#9eb0c3' }]}>
+                      🏢 Platform Share
+                    </Text>
+                    <Text style={[styles.totalValue, { color: '#e94560' }]}>
+                      {payment.currency} {platformShare.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalLabel, { color: '#4a7c59' }]}>
+                    👨‍🔧 Technician Payout
+                  </Text>
+                  <Text style={[styles.totalValue, { color: '#4a7c59', fontWeight: '700' }]}>
+                    {payment.currency} {technicianShare.toFixed(2)}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
 
           {/* Payment Method Selection */}
@@ -679,6 +720,11 @@ const styles = StyleSheet.create({
   },
   grandTotalLabel: { fontSize: 16, fontWeight: '800', color: '#fff' },
   grandTotalValue: { fontSize: 18, fontWeight: '800', color: '#e94560' },
+  splitDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 8,
+  },
   methodsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

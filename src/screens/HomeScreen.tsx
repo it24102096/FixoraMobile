@@ -27,11 +27,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   const loadData = useCallback(async () => {
     try {
-      const [currentUser, jobsRes, apptRes] = await Promise.all([
-        authService.getCurrentUser(),
+      const currentUser = await authService.getCurrentUser();
+
+      const [jobsRes, apptRes] = await Promise.all([
         jobService.getJobs(1, 5, 'in_progress'),
         appointmentService.getAppointments(1, 5, 'scheduled'),
       ]);
+
       setUser(currentUser);
       setRecentJobs(jobsRes.data);
       setTodayAppointments(apptRes.data);
@@ -124,7 +126,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.sectionTitle}>Quick Access</Text>
         <View style={styles.navGrid}>
           {[
-            ...(user?.role === 'customer' ? [{ label: 'Services', icon: '🛠️', screen: 'Services' as const }] : []),
+            ...(user?.role === 'customer' || user?.role === 'admin'
+              ? [{ label: 'Services', icon: '🛠️', screen: 'Services' as const }]
+              : []),
+            ...(user?.role === 'admin'
+              ? [{ label: 'Add Service', icon: '➕', screen: 'AddService' as const }]
+              : []),
             { label: 'Jobs', icon: '🔧', screen: 'Jobs' as const },
             { label: 'Appointments', icon: '📅', screen: 'Appointment' as const },
             { label: 'Payments', icon: '💳', screen: 'PaymentsList' as const },
