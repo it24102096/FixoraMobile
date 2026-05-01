@@ -11,8 +11,9 @@ import {
   RefreshControl,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, Payment } from '../types';
+import { RootStackParamList, FinanceSummary, Payment } from '../types';
 import { paymentService } from '../services/paymentService';
+import { authService } from '../services/authService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PaymentsList'>;
 
@@ -25,13 +26,26 @@ const statusColor: Record<string, string> = {
 
 const PaymentsListScreen: React.FC<Props> = ({ navigation }) => {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [summary, setSummary] = useState<FinanceSummary | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadPayments = useCallback(async () => {
     try {
+      const user = await authService.getCurrentUser();
+      const admin = user?.role === 'admin';
+      setIsAdmin(admin);
+
       const res = await paymentService.getPayments();
       setPayments(res.data);
+
+      if (admin) {
+        const financeSummary = await paymentService.getFinanceSummary();
+        setSummary(financeSummary);
+      } else {
+        setSummary(null);
+      }
     } catch {
       Alert.alert('Error', 'Failed to load payments.');
     } finally {
@@ -100,6 +114,39 @@ const PaymentsListScreen: React.FC<Props> = ({ navigation }) => {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          isAdmin && summary ? (
+            <View style={styles.summaryWrap}>
+              <Text style={styles.summaryTitle}>Finance Summary</Text>
+              <View style={styles.summaryGrid}>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Invoices</Text>
+                  <Text style={styles.summaryValue}>{summary.totals.totalInvoices}</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Total</Text>
+                  <Text style={styles.summaryValue}>${summary.totals.totalAmount.toFixed(2)}</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Paid</Text>
+                  <Text style={[styles.summaryValue, { color: '#2d6a4f' }]}>${summary.totals.paidAmount.toFixed(2)}</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Pending</Text>
+                  <Text style={[styles.summaryValue, { color: '#d4a017' }]}>${summary.totals.pendingAmount.toFixed(2)}</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Failed</Text>
+                  <Text style={[styles.summaryValue, { color: '#c1440e' }]}>${summary.totals.failedAmount.toFixed(2)}</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Refunded</Text>
+                  <Text style={[styles.summaryValue, { color: '#8899aa' }]}>${summary.totals.refundedAmount.toFixed(2)}</Text>
+                </View>
+              </View>
+            </View>
+          ) : null
+        }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#e94560" />}
         ListEmptyComponent={
           <View style={styles.centered}>
@@ -128,6 +175,27 @@ const styles = StyleSheet.create({
   backText: { color: '#e94560', fontSize: 15, fontWeight: '600' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   list: { padding: 16, paddingBottom: 32 },
+  summaryWrap: {
+    backgroundColor: '#16213e',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 12,
+    padding: 14,
+  },
+  summaryTitle: { color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 10 },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  summaryCard: {
+    width: '48%',
+    backgroundColor: '#0f1b2e',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  summaryLabel: { color: '#9eb0c3', fontSize: 12, marginBottom: 4 },
+  summaryValue: { color: '#fff', fontSize: 15, fontWeight: '700' },
   card: {
     backgroundColor: '#16213e',
     borderRadius: 14,

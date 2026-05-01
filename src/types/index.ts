@@ -8,6 +8,14 @@ export interface User {
   role: 'technician' | 'admin' | 'customer';
   avatarUrl?: string;
   token?: string;
+  // Technician-specific fields
+  workingHours?: {
+    startTime: string;
+    endTime: string;
+  };
+  availableDates?: string[];
+  unavailableDates?: string[];
+  specializations?: string[];
 }
 
 export interface AuthCredentials {
@@ -18,6 +26,7 @@ export interface AuthCredentials {
 export interface RegistrationCredentials extends AuthCredentials {
   name: string;
   phone: string;
+  role?: 'customer' | 'technician' | 'admin';
 }
 
 // ─── Job ────────────────────────────────────────────────────────────────────
@@ -38,6 +47,7 @@ export interface Job {
   estimatedDuration: number; // minutes
   technicianId?: string;
   technicianName?: string;
+  serviceName?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -67,9 +77,25 @@ export interface Appointment {
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type PaymentMethod = 'cash' | 'card' | 'upi' | 'bank_transfer';
 
+export interface PaymentPaySlip {
+  fileName?: string;
+  fileUrl?: string;
+  uploadedAt?: string;
+}
+
 export interface Payment {
   id: string;
-  jobId: string;
+  jobId: {
+    _id: string;
+    title: string;
+    status: string;
+    customerId: {
+      _id: string;
+      name: string;
+      email: string;
+      phone: string;
+    }
+  } | string;
   invoiceNumber: string;
   amount: number;
   tax: number;
@@ -80,6 +106,8 @@ export interface Payment {
   paidAt?: string;
   dueDate: string;
   lineItems: PaymentLineItem[];
+  paySlip?: PaymentPaySlip;
+  paymentNotes?: string;
 }
 
 export interface PaymentLineItem {
@@ -87,6 +115,39 @@ export interface PaymentLineItem {
   quantity: number;
   unitPrice: number;
   total: number;
+}
+
+export interface FinanceSummaryTotals {
+  totalInvoices: number;
+  totalAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  refundedAmount: number;
+  failedAmount: number;
+}
+
+export interface FinanceSummary {
+  totals: FinanceSummaryTotals;
+  statusBreakdown: Array<{
+    _id: string;
+    count: number;
+  }>;
+}
+
+// ─── Service ─────────────────────────────────────────────────────────────────
+
+export interface Service {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  basePrice: number;
+  currency: string;
+  estimatedDuration: number; // minutes
+  icon: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ─── Support ─────────────────────────────────────────────────────────────────
@@ -122,7 +183,12 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Home: undefined;
+  EditProfile: undefined;
+  TechnicianAvailability: undefined;
   Jobs: undefined;
+  AddService: undefined;
+  Services: undefined;
+  ServiceBooking: { service: Service };
   JobDetails: { jobId: string };
   Appointment: { appointmentId?: string; jobId?: string };
   PaymentsList: undefined;

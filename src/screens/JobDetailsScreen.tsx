@@ -8,23 +8,43 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Job, JobStatus } from '../types';
 import { jobService } from '../services/jobService';
+import { authService } from '../services/authService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JobDetails'>;
+
+interface Technician {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  specializations?: string[];
+}
 
 const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const { jobId } = route.params;
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showTechnicianModal, setShowTechnicianModal] = useState(false);
+  const [availableTechnicians, setAvailableTechnicians] = useState<Technician[]>([]);
+  const [loadingTechs, setLoadingTechs] = useState(false);
+  const [assigningTech, setAssigningTech] = useState(false);
 
   const loadJob = useCallback(async () => {
     try {
-      const data = await jobService.getJobById(jobId);
+      const [data, user] = await Promise.all([
+        jobService.getJobById(jobId),
+        authService.getCurrentUser(),
+      ]);
       setJob(data);
+      setIsAdmin((user as any)?.role === 'admin');
     } catch {
       Alert.alert('Error', 'Failed to load job details.');
     } finally {
@@ -67,6 +87,49 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleScheduleAppointment = () => {
     navigation.navigate('Appointment', { jobId });
+  };
+
+  const handleAssignTechnician = async () => {
+    if (!job) return;
+    setLoadingTechs(true);
+    try {
+      const techs = await jobService.getAvailableTechnicians(
+        job.scheduledAt,
+        job.estimatedDuration,
+        job.serviceName || job.title,
+      );
+      setAvailableTechnicians(techs);
+      setShowTechnicianModal(true);
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to load available technicians.';
+      Alert.alert('Error', errorMsg);
+      console.error('Technician fetch error:', err);
+    } finally {
+      setLoadingTechs(false);
+    }
+  };
+
+  const handleSelectTechnician = async (tech: Technician) => {
+    if (!job) return;
+    setAssigningTech(true);
+    try {
+      const updated = await jobService.assignTechnician(jobId, tech._id);
+      setJob(updated);
+      setShowTechnicianModal(false);
+      Alert.alert('Success ✅', `Technician ${tech.name} assigned! Appointment created.`);
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to assign technician.';
+      Alert.alert('Error', errorMsg);
+      console.error('Assignment error:', err);
+    } finally {
+      setAssigningTech(false);
+    }
   };
 
   if (loading) {
@@ -186,8 +249,19 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Quick Links */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Actions</Text>
+          {isAdmin && (
+            <TouchableOpacity
+              style={[styles.linkBtn, styles.linkBtnAdmin]}
+              onPress={handleAssignTechnician}
+              disabled={loadingTechs || assigningTech}
+            >
+              <Text style={styles.linkBtnText}>
+                {loadingTechs || assigningTech ? '⏳ Loading...' : '👨‍🔧 Assign Technician'}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            style={styles.linkBtn}
+            style={[styles.linkBtn, isAdmin && { marginTop: 10 }]}
             onPress={handleScheduleAppointment}
           >
             <Text style={styles.linkBtnText}>📅 Schedule Appointment</Text>
@@ -200,6 +274,61 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Technician Picker Modal */}
+      <Modal visible={showTechnicianModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowTechnicianModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={styles.modalTitle}>Assign Technician</Text>
+                {job?.serviceName ? (
+                  <Text style={styles.modalSubtitle}>{job.serviceName} specialists only</Text>
+                ) : null}
+              </View>
+              <View style={{ width: 24 }} />
+            </View>
+
+            {availableTechnicians.length === 0 ? (
+              <View style={styles.emptyTechs}>
+                <Text style={styles.emptyTechsText}>
+                  {job?.serviceName
+                    ? `No available technicians specializing in "${job.serviceName}".`
+                    : 'No available technicians for this time slot.'}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={availableTechnicians}
+                keyExtractor={t => t._id}
+                renderItem={({ item: tech }) => (
+                  <TouchableOpacity
+                    style={styles.techItem}
+                    onPress={() => handleSelectTechnician(tech)}
+                    disabled={assigningTech}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.techName}>{tech.name}</Text>
+                      <Text style={styles.techContact}>{tech.email}</Text>
+                      <Text style={styles.techContact}>{tech.phone}</Text>
+                                         {tech.specializations && tech.specializations.length > 0 && (
+                                           <Text style={styles.techSpecializations}>
+                                             🔧 {tech.specializations.join(', ')}
+                                           </Text>
+                                         )}
+                    </View>
+                    <Text style={styles.techSelect}>→</Text>
+                  </TouchableOpacity>
+                )}
+                contentContainerStyle={styles.techList}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -352,6 +481,52 @@ const styles = StyleSheet.create({
     borderColor: '#1e4a80',
   },
   linkBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  linkBtnAdmin: {
+    backgroundColor: '#e94560',
+    borderColor: '#e94560',
+  },
+  // ── Modal Styles ──
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#0d1b2a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a2a3a',
+  },
+  modalClose: { fontSize: 24, color: '#e94560', fontWeight: '700' },
+  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    modalSubtitle: { color: '#e94560', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  techList: { padding: 12 },
+    techSpecializations: { color: '#4cde9a', fontSize: 11, marginTop: 3, fontWeight: '500' },
+  emptyTechs: { alignItems: 'center', paddingVertical: 40 },
+  emptyTechsText: { color: '#888', fontSize: 14 },
+  techItem: {
+    backgroundColor: '#162032',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#1e3050',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  techName: { color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 4 },
+  techContact: { color: '#7eb8f7', fontSize: 12, marginBottom: 2 },
+  techSelect: { color: '#4cde9a', fontSize: 18, fontWeight: '800' },
 });
 
 export default JobDetailsScreen;

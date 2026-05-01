@@ -45,12 +45,17 @@ class JobService {
   }
 
   // ─── Assignment ───────────────────────────────────────────────────────────
-
+  async getAvailableTechnicians(scheduledAt: string, duration: number = 60, serviceName?: string): Promise<any[]> {
+    const response = await apiService.get('/jobs/available-technicians', {
+      params: { scheduledAt, duration, ...(serviceName ? { serviceName } : {}) },
+    });
+    return ((response as any).data as any[]) || [];
+  }
   async assignTechnician(jobId: string, technicianId: string): Promise<Job> {
     const response = await apiService.patch<Job>(`/jobs/${jobId}/assign`, {
       technicianId,
     });
-    return response.data;
+    return (response as any).data?.data || (response as any).data;
   }
 }
 

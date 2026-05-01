@@ -24,6 +24,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState<'customer' | 'technician' | 'admin'>('customer');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -61,6 +62,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         email: email.trim(),
         phone: phone.trim(),
         password,
+        role,
       });
       navigation.replace('Home');
     } catch (error: any) {
@@ -91,13 +93,31 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Create Account</Text>
-          <Text style={styles.cardSubtitle}>Join as a technician</Text>
+          <Text style={styles.cardSubtitle}>Join Fixora</Text>
 
           {errorMsg ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
           ) : null}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Account Type</Text>
+            <View style={styles.roleRow}>
+              {(['customer', 'technician', 'admin'] as const).map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.roleBtn, role === r && styles.roleBtnActive]}
+                  onPress={() => setRole(r)}
+                  disabled={loading}
+                >
+                  <Text style={[styles.roleBtnText, role === r && styles.roleBtnTextActive]}>
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Full Name</Text>
@@ -339,6 +359,31 @@ const styles = StyleSheet.create({
     color: '#00d4e8',
     fontSize: 13,
     fontWeight: '600',
+  },
+  roleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  roleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#0c2242',
+    borderWidth: 1,
+    borderColor: '#1d3b63',
+  },
+  roleBtnActive: {
+    backgroundColor: 'rgba(0, 212, 232, 0.15)',
+    borderColor: '#00d4e8',
+  },
+  roleBtnText: {
+    color: '#6b82a3',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  roleBtnTextActive: {
+    color: '#00d4e8',
   },
   registerBtn: {
     backgroundColor: '#00d4e8',
