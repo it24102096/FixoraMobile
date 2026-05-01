@@ -84,9 +84,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.greeting}>Hello, {user?.name ?? 'Technician'} 👋</Text>
           <Text style={styles.subGreeting}>Here's your overview for today</Text>
         </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={styles.headerBtns}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('EditProfile')}
+            style={styles.profileBtn}
+          >
+            <Text style={styles.profileBtnText}>👤</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -116,6 +124,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.sectionTitle}>Quick Access</Text>
         <View style={styles.navGrid}>
           {[
+            ...(user?.role === 'customer' ? [{ label: 'Services', icon: '🛠️', screen: 'Services' as const }] : []),
             { label: 'Jobs', icon: '🔧', screen: 'Jobs' as const },
             { label: 'Appointments', icon: '📅', screen: 'Appointment' as const },
             { label: 'Payments', icon: '💳', screen: 'PaymentsList' as const },
@@ -219,6 +228,18 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 20, fontWeight: '700', color: '#fff' },
   subGreeting: { fontSize: 13, color: '#888', marginTop: 2 },
+  headerBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  profileBtn: {
+    backgroundColor: 'rgba(76,222,154,0.15)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#4cde9a',
+  },
+  profileBtnText: { fontSize: 18 },
   logoutBtn: {
     backgroundColor: 'rgba(233,69,96,0.15)',
     paddingHorizontal: 12,

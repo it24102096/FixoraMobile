@@ -8,7 +8,10 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
+  TextInput,
+  Image,
 } from 'react-native';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Payment, PaymentMethod } from '../types';
 import { paymentService } from '../services/paymentService';
@@ -16,11 +19,28 @@ import { paymentService } from '../services/paymentService';
 type Props = NativeStackScreenProps<RootStackParamList, 'Payment'>;
 
 const PAYMENT_METHODS: { label: string; value: PaymentMethod; icon: string }[] = [
-  { label: 'Cash', value: 'cash', icon: '💵' },
   { label: 'Card', value: 'card', icon: '💳' },
-  { label: 'UPI', value: 'upi', icon: '📱' },
   { label: 'Bank Transfer', value: 'bank_transfer', icon: '🏦' },
 ];
+
+interface CardDetails {
+  cardNumber: string;
+  cardholderName: string;
+  expiryDate: string;
+  cvv: string;
+}
+
+interface PaySlipFile {
+  uri: string;
+  name: string;
+  type: string;
+  size: number;
+}
+
+interface BankTransferDetails {
+  paySlip: PaySlipFile | null;
+  notice: string;
+}
 
 const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
   const { jobId, paymentId } = route.params;
@@ -28,6 +48,45 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('card');
+  const [cardDetails, setCardDetails] = useState<CardDetails>({
+    cardNumber: '',
+    cardholderName: '',
+    expiryDate: '',
+    cvv: '',
+  });
+  const [bankTransferDetails, setBankTransferDetails] = useState<BankTransferDetails>({
+    paySlip: null,
+    notice: '',
+  });
+
+  const handlePickPaySlip = useCallback(async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.9,
+      });
+
+      if (!result.didCancel && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const fileName = asset.fileName || `payslip_${Date.now()}.jpg`;
+        const fileType = asset.type || 'image/jpeg';
+        const fileSize = asset.fileSize || 0;
+
+        setBankTransferDetails({
+          ...bankTransferDetails,
+          paySlip: {
+            uri: asset.uri!,
+            name: fileName,
+            type: fileType,
+            size: fileSize,
+          },
+        });
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick file. Please try again.');
+      console.error('File picker error:', error);
+    }
+  }, [bankTransferDetails]);
 
   const loadPayment = useCallback(async () => {
     setLoading(true);
@@ -78,13 +137,77 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handlePay = async () => {
     if (!payment) return;
+
+    // Validate card details if card is selected
+    if (selectedMethod === 'card') {
+      if (!cardDetails.cardNumber.trim()) {
+        Alert.alert('Error', 'Please enter card number');
+        return;
+      }
+      if (cardDetails.cardNumber.replace(/\s/g, '').length !== 16) {
+        Alert.alert('Error', 'Card number must be 16 digits');
+        return;
+      }
+      if (!cardDetails.cardholderName.trim()) {
+        Alert.alert('Error', 'Please enter cardholder name');
+        return;
+      }
+      if (!cardDetails.expiryDate.trim()) {
+        Alert.alert('Error', 'Please enter expiry date (MM/YY)');
+        return;
+      }
+      if (!cardDetails.cvv.trim()) {
+        Alert.alert('Error', 'Please enter CVV');
+        return;
+      }
+      if (cardDetails.cvv.length !== 3) {
+        Alert.alert('Error', 'CVV must be 3 digits');
+        return;
+      }
+    }
+
+    // Validate bank transfer details if bank transfer is selected
+    if (selectedMethod === 'bank_transfer') {
+      if (!bankTransferDetails.paySlip) {
+        Alert.alert('Error', 'Please upload a bank transfer receipt/slip image');
+        return;
+      }
+      if (!bankTransferDetails.notice.trim()) {
+        Alert.alert('Error', 'Please add a special notice or payment instructions');
+        return;
+      }
+    }
+
     setProcessing(true);
     try {
-      const updated = await paymentService.processPayment(payment.id, selectedMethod);
+      let updated: Payment;
+      if (selectedMethod === 'bank_transfer' && bankTransferDetails.paySlip) {
+        updated = await paymentService.processPayment(
+          payment.id,
+          selectedMethod,
+          bankTransferDetails.paySlip,
+          bankTransferDetails.notice,
+        );
+      } else {
+        updated = await paymentService.processPayment(payment.id, selectedMethod);
+      }
       setPayment(updated);
       Alert.alert('Payment Successful! 🎉', 'The payment has been processed.');
-    } catch {
-      Alert.alert('Payment Failed', 'Could not process payment. Please try again.');
+      // Reset form details after successful payment
+      setCardDetails({
+        cardNumber: '',
+        cardholderName: '',
+        expiryDate: '',
+        cvv: '',
+      });
+      setBankTransferDetails({
+        paySlip: null,
+        notice: '',
+      });
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.message || 'Could not process payment. Please try again.';
+      Alert.alert('Payment Failed', errorMsg);
+      console.error('Payment process error:', err);
     } finally {
       setProcessing(false);
     }
@@ -158,6 +281,38 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
             Due: {new Date(payment.dueDate).toLocaleDateString()}
           </Text>
 
+          {/* CUSTOMER DETAILS SECTION - Always Show First */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: '#4a7c59' }]}>
+              👤 CUSTOMER INFORMATION
+            </Text>
+            
+            {typeof payment.jobId === 'object' && payment.jobId?.customerId ? (
+              <View style={styles.customerInfo}>
+                <Text style={styles.customerName}>
+                  {typeof payment.jobId.customerId === 'object' 
+                    ? payment.jobId.customerId.name 
+                    : 'Customer'}
+                </Text>
+                <Text style={styles.customerDetail}>
+                  📧 {typeof payment.jobId.customerId === 'object'
+                    ? payment.jobId.customerId.email
+                    : 'Email not available'}
+                </Text>
+                <Text style={styles.customerDetail}>
+                  📱 {typeof payment.jobId.customerId === 'object'
+                    ? payment.jobId.customerId.phone
+                    : 'Phone not available'}
+                </Text>
+                <Text style={[styles.customerDetail, { marginTop: 10, color: '#4a7c59', fontWeight: '600' }]}>
+                  🔧 Service: {payment.jobId.title || 'Service'}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.customerDetail}>Customer information not available</Text>
+            )}
+          </View>
+
           {/* Line Items */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Line Items</Text>
@@ -228,6 +383,163 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
                   ))}
                 </View>
               </View>
+
+              {/* Card Payment Form - Shows when Card is selected */}
+              {selectedMethod === 'card' && (
+                <View style={styles.cardFormSection}>
+                  <Text style={styles.sectionTitle}>💳 Card Details</Text>
+
+                  {/* Cardholder Name */}
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Cardholder Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="John Doe"
+                      placeholderTextColor="#999"
+                      value={cardDetails.cardholderName}
+                      onChangeText={(text) =>
+                        setCardDetails({ ...cardDetails, cardholderName: text })
+                      }
+                      editable={!processing}
+                    />
+                  </View>
+
+                  {/* Card Number */}
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Card Number</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="1234 5678 9012 3456"
+                      placeholderTextColor="#999"
+                      value={cardDetails.cardNumber}
+                      onChangeText={(text) => {
+                        const cleaned = text.replace(/\D/g, '').slice(0, 16);
+                        const formatted = cleaned
+                          .match(/.{1,4}/g)
+                          ?.join(' ') || cleaned;
+                        setCardDetails({ ...cardDetails, cardNumber: formatted });
+                      }}
+                      keyboardType="numeric"
+                      maxLength={19}
+                      editable={!processing}
+                    />
+                  </View>
+
+                  {/* Expiry Date and CVV */}
+                  <View style={styles.rowContainer}>
+                    <View style={[styles.formGroup, { flex: 1 }]}>
+                      <Text style={styles.label}>Expiry Date</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="MM/YY"
+                        placeholderTextColor="#999"
+                        value={cardDetails.expiryDate}
+                        onChangeText={(text) => {
+                          let formatted = text.replace(/\D/g, '');
+                          if (formatted.length >= 2) {
+                            formatted = formatted.slice(0, 2) + '/' + formatted.slice(2, 4);
+                          }
+                          setCardDetails({ ...cardDetails, expiryDate: formatted });
+                        }}
+                        keyboardType="numeric"
+                        maxLength={5}
+                        editable={!processing}
+                      />
+                    </View>
+
+                    <View style={[styles.formGroup, { flex: 1, marginLeft: 12 }]}>
+                      <Text style={styles.label}>CVV</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="123"
+                        placeholderTextColor="#999"
+                        value={cardDetails.cvv}
+                        onChangeText={(text) =>
+                          setCardDetails({
+                            ...cardDetails,
+                            cvv: text.replace(/\D/g, '').slice(0, 3),
+                          })
+                        }
+                        keyboardType="numeric"
+                        maxLength={3}
+                        secureTextEntry
+                        editable={!processing}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Bank Transfer Form - Shows when Bank Transfer is selected */}
+              {selectedMethod === 'bank_transfer' && (
+                <View style={styles.bankTransferSection}>
+                  <Text style={styles.sectionTitle}>🏦 Bank Transfer</Text>
+
+                  {/* Pay Slip Upload */}
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>📄 Upload Bank Transfer Receipt</Text>
+                    
+                    {!bankTransferDetails.paySlip ? (
+                      <TouchableOpacity
+                        style={styles.uploadBtn}
+                        onPress={handlePickPaySlip}
+                        disabled={processing}
+                      >
+                        <Text style={styles.uploadBtnIcon}>📸</Text>
+                        <Text style={styles.uploadBtnText}>Select Pay Slip Image</Text>
+                        <Text style={styles.uploadBtnSubText}>JPG, PNG (Max 5MB)</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={styles.imageContainer}>
+                        {bankTransferDetails.paySlip.uri && (
+                          <Image
+                            source={{ uri: bankTransferDetails.paySlip.uri }}
+                            style={styles.slipImage}
+                          />
+                        )}
+                        <View style={styles.fileInfoBox}>
+                          <Text style={styles.fileName}>{bankTransferDetails.paySlip.name}</Text>
+                          <Text style={styles.fileSize}>
+                            {(bankTransferDetails.paySlip.size / 1024).toFixed(2)} KB
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.changeImageBtn}
+                          onPress={handlePickPaySlip}
+                          disabled={processing}
+                        >
+                          <Text style={styles.changeBtnText}>Change Image</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Special Notice / Payment Instructions */}
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>⚠️ Payment Instructions / Notes</Text>
+                    <TextInput
+                      style={[styles.input, styles.noteInput]}
+                      placeholder="e.g., Processing in 2-3 hours, Reference: INV-001234"
+                      placeholderTextColor="#666"
+                      value={bankTransferDetails.notice}
+                      onChangeText={(text) =>
+                        setBankTransferDetails({ ...bankTransferDetails, notice: text })
+                      }
+                      multiline
+                      numberOfLines={3}
+                      editable={!processing}
+                      textAlignVertical="top"
+                    />
+                  </View>
+
+                  <View style={styles.instructionBox}>
+                    <Text style={styles.instructionTitle}>✓ Please ensure:</Text>
+                    <Text style={styles.instructionText}>• Receipt clearly shows the amount transferred</Text>
+                    <Text style={styles.instructionText}>• Receipt includes transaction date & time</Text>
+                    <Text style={styles.instructionText}>• Receipt is readable and not cropped</Text>
+                  </View>
+                </View>
+              )}
 
               <TouchableOpacity
                 style={[
@@ -416,6 +728,178 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   emptyText: { color: '#666', fontSize: 15 },
+
+  // Card Form Styles
+  cardFormSection: {
+    backgroundColor: '#16213e',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+    borderWidth: 1,
+    borderColor: '#e94560',
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    color: '#ccc',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#0f1620',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'monospace',
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  // Bank Transfer Styles
+  bankTransferSection: {
+    backgroundColor: '#16213e',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+    borderWidth: 1,
+    borderColor: '#4a7c59',
+  },
+  uploadBtn: {
+    backgroundColor: '#0f1620',
+    borderWidth: 2,
+    borderColor: '#4a7c59',
+    borderRadius: 12,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadBtnIcon: {
+    fontSize: 44,
+    marginBottom: 8,
+  },
+  uploadBtnText: {
+    color: '#4a7c59',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  uploadBtnSubText: {
+    color: '#888',
+    fontSize: 12,
+  },
+  imageContainer: {
+    backgroundColor: '#0f1620',
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  slipImage: {
+    width: '100%',
+    height: 200,
+    resizeMode: 'cover',
+  },
+  changeImageBtn: {
+    backgroundColor: '#4a7c59',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  changeBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  noteInput: {
+    height: 120,
+    paddingTop: 12,
+  },
+  helpText: {
+    color: '#666',
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  helpSubText: {
+    color: '#4a7c59',
+    fontSize: 11,
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  customerSection: {
+    backgroundColor: '#16213e',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4a7c59',
+  },
+  customerInfo: {
+    marginTop: 10,
+  },
+  customerName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  customerDetail: {
+    fontSize: 13,
+    color: '#aaa',
+    marginBottom: 6,
+  },
+  jobTitle: {
+    fontSize: 13,
+    color: '#4a7c59',
+    marginTop: 8,
+    fontWeight: '600',
+  },
+  fileInfoBox: {
+    backgroundColor: '#0a0a0a',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  fileName: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  fileSize: {
+    color: '#888',
+    fontSize: 12,
+  },
+  instructionBox: {
+    backgroundColor: 'rgba(74, 124, 89, 0.15)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4a7c59',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  instructionTitle: {
+    color: '#4a7c59',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  instructionText: {
+    color: '#aaa',
+    fontSize: 12,
+    marginBottom: 4,
+  },
 });
 
 export default PaymentScreen;

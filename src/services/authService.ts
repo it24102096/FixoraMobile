@@ -12,11 +12,16 @@ class AuthService {
 
   async login(credentials: AuthCredentials): Promise<User> {
     const response = await apiService.post<User>('/auth/login', credentials);
-    const user = response.data;
+    const loginUser = response.data;
 
-    if (user.token) {
-      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, user.token);
+    if (loginUser.token) {
+      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, loginUser.token);
     }
+
+    // Fetch full profile so persisted user always contains latest fields
+    // like workingHours/availableDates after app relogin.
+    const me = await this.getMe();
+    const user = me || loginUser;
     await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
 
     return user;
@@ -26,11 +31,14 @@ class AuthService {
 
   async register(credentials: RegistrationCredentials): Promise<User> {
     const response = await apiService.post<User>('/auth/register', credentials);
-    const user = response.data;
+    const registerUser = response.data;
 
-    if (user.token) {
-      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, user.token);
+    if (registerUser.token) {
+      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, registerUser.token);
     }
+
+    const me = await this.getMe();
+    const user = me || registerUser;
     await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
 
     return user;
@@ -56,6 +64,17 @@ class AuthService {
     return userJson ? (JSON.parse(userJson) as User) : null;
   }
 
+  async getMe(): Promise<User | null> {
+    try {
+      const response = await apiService.get<any>('/auth/me');
+      const user = response.data as User;
+      await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      return user;
+    } catch {
+      return null;
+    }
+  }
+
   async getToken(): Promise<string | null> {
     return AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   }
@@ -76,6 +95,28 @@ class AuthService {
       token,
       newPassword,
     });
+  }
+
+  // ─── Profile ──────────────────────────────────────────────────────────────
+
+  async updateProfile(data: Partial<User>): Promise<User> {
+    const response = await apiService.put<User>('/auth/profile', data);
+    const user = response.data;
+    await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+    return user;
+  }
+
+  // ─── Availability ─────────────────────────────────────────────────────────
+
+  async updateAvailability(data: {
+    workingHours?: { startTime: string; endTime: string };
+    availableDates?: string[];
+    unavailableDates?: string[];
+  }): Promise<User> {
+    const response = await apiService.put<User>('/auth/availability', data);
+    const user = response.data;
+    await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+    return user;
   }
 }
 

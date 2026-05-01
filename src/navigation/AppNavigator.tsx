@@ -15,6 +15,11 @@ import AppointmentScreen from '../screens/AppointmentScreen';
 import PaymentsListScreen from '../screens/PaymentsListScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import SupportScreen from '../screens/SupportScreen';
+import AddServiceScreen from '../screens/AddServiceScreen';
+import ServicesScreen from '../screens/ServicesScreen';
+import ServiceBookingScreen from '../screens/ServiceBookingScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import TechnicianAvailabilityScreen from '../screens/TechnicianAvailabilityScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -52,7 +57,12 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="TechnicianAvailability" component={TechnicianAvailabilityScreen} />
         <Stack.Screen name="Jobs" component={JobsScreen} />
+        <Stack.Screen name="AddService" component={AddServiceScreen} />
+        <Stack.Screen name="Services" component={ServicesScreen} />
+        <Stack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
         <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
         <Stack.Screen name="Appointment" component={AppointmentScreen} />
         <Stack.Screen name="PaymentsList" component={PaymentsListScreen} />

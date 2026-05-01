@@ -11,8 +11,10 @@ import {
   StatusBar,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList, Job, JobStatus } from '../types';
 import { jobService } from '../services/jobService';
+import { authService } from '../services/authService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Jobs'>;
 
@@ -30,6 +32,7 @@ const JobsScreen: React.FC<Props> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<JobStatus | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Since we want to compute stats for all items, we'll try to fetch all or use the loaded list.
   // For the sake of the requirement "Show all jobs in a list" and "4 stat cards at top",
@@ -52,6 +55,27 @@ const JobsScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadUserRole = async () => {
+        const localUser = await authService.getCurrentUser();
+        const meUser = await authService.getMe();
+        const roleCandidate =
+          (meUser as any)?.role ||
+          (meUser as any)?.data?.role ||
+          (localUser as any)?.role ||
+          (localUser as any)?.data?.role ||
+          '';
+
+        const normalizedRole = String(roleCandidate).trim().toLowerCase();
+        setIsAdmin(normalizedRole === 'admin');
+      };
+
+      loadUserRole();
+      return undefined;
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -95,9 +119,9 @@ const JobsScreen: React.FC<Props> = ({ navigation }) => {
       <Text style={styles.jobTitle}>{item.title}</Text>
       
       <View style={styles.jobDetailsRow}>
-        <Text style={styles.detailText}>
-          <Text style={styles.detailLabel}>Tech: </Text>
-          {item.technicianName || 'Unassigned'}
+        <Text style={[styles.detailText, !item.technicianName && styles.unassignedText]}>
+          <Text style={styles.detailLabel}>Tech : </Text>
+          {item.technicianName || 'Registered'}
         </Text>
       </View>
       
@@ -109,6 +133,25 @@ const JobsScreen: React.FC<Props> = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  const handleAddServicePress = async () => {
+    const localUser = await authService.getCurrentUser();
+    const meUser = await authService.getMe();
+    const roleCandidate =
+      (meUser as any)?.role ||
+      (meUser as any)?.data?.role ||
+      (localUser as any)?.role ||
+      (localUser as any)?.data?.role ||
+      '';
+    const normalizedRole = String(roleCandidate).trim().toLowerCase();
+
+    if (normalizedRole !== 'admin') {
+      Alert.alert('Access denied', 'Only admin can add new services.');
+      return;
+    }
+
+    navigation.navigate('AddService');
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#071428" />
@@ -116,6 +159,14 @@ const JobsScreen: React.FC<Props> = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Job Management</Text>
+        {isAdmin ? (
+          <TouchableOpacity
+            style={styles.addServiceBtn}
+            onPress={handleAddServicePress}
+          >
+            <Text style={styles.addServiceBtnText}>+ Add Service</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Stats Grid */}
@@ -225,6 +276,22 @@ const styles = StyleSheet.create({
     fontWeight: '800', 
     color: '#ffffff',
     letterSpacing: 0.5,
+  },
+  addServiceBtn: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0, 212, 232, 0.15)',
+    borderWidth: 1,
+    borderColor: '#00d4e8',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  addServiceBtnText: {
+    color: '#00d4e8',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -355,6 +422,10 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     color: '#6b82a3',
+  },
+  unassignedText: {
+    color: '#f59e0b',
+    fontWeight: '600',
   },
   jobFooter: { 
     borderTopWidth: 1,
