@@ -192,6 +192,7 @@ export type RootStackParamList = {
   Jobs: undefined;
   AddService: undefined;
   Services: undefined;
+  EditService: { service: Service };
   ServiceBooking: { service: Service };
   JobDetails: { jobId: string };
   Appointment: { appointmentId?: string; jobId?: string };

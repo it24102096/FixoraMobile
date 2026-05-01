@@ -10,6 +10,10 @@ export interface CreateServicePayload {
   icon?: string;
 }
 
+export interface UpdateServicePayload extends Partial<CreateServicePayload> {
+  isActive?: boolean;
+}
+
 export interface BookServicePayload {
   serviceId: string;
   address: string;
@@ -37,6 +41,16 @@ class ServiceService {
   async createService(payload: CreateServicePayload) {
     const response = await apiService.post('/services', payload);
     return (response as any).data;
+  }
+
+  async updateService(id: string, payload: UpdateServicePayload) {
+    const response = await apiService.put(`/services/${id}`, payload);
+    return (response as any).data;
+  }
+
+  async deleteService(id: string) {
+    const response = await apiService.delete(`/services/${id}`);
+    return response;
   }
 
   async bookService(payload: BookServicePayload) {
