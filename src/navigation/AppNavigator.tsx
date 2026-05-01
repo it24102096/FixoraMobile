@@ -17,6 +17,7 @@ import PaymentScreen from '../screens/PaymentScreen';
 import SupportScreen from '../screens/SupportScreen';
 import AddServiceScreen from '../screens/AddServiceScreen';
 import ServicesScreen from '../screens/ServicesScreen';
+import EditServiceScreen from '../screens/EditServiceScreen';
 import ServiceBookingScreen from '../screens/ServiceBookingScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import TechnicianAvailabilityScreen from '../screens/TechnicianAvailabilityScreen';
@@ -62,6 +63,7 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Jobs" component={JobsScreen} />
         <Stack.Screen name="AddService" component={AddServiceScreen} />
         <Stack.Screen name="Services" component={ServicesScreen} />
+        <Stack.Screen name="EditService" component={EditServiceScreen} />
         <Stack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
         <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
         <Stack.Screen name="Appointment" component={AppointmentScreen} />

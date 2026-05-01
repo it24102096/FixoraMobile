@@ -53,6 +53,30 @@ const ServicesScreen: React.FC<Props> = ({ navigation }) => {
     fetchData();
   };
 
+  const handleDeleteService = (serviceId: string) => {
+    Alert.alert(
+      'Delete Service',
+      'Are you sure you want to delete this service?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await serviceService.deleteService(serviceId);
+              Alert.alert('Success', 'Service deleted successfully.');
+              fetchData();
+            } catch (error: any) {
+              const message = error?.response?.data?.message || 'Failed to delete service.';
+              Alert.alert('Error', message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const filtered = services.filter(s => {
     const matchesSearch =
       s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -63,6 +87,7 @@ const ServicesScreen: React.FC<Props> = ({ navigation }) => {
   });
 
   const isCustomer = userRole === 'customer';
+  const isAdmin = userRole === 'admin';
 
   const renderService = ({ item }: { item: Service }) => (
     <TouchableOpacity
@@ -93,6 +118,22 @@ const ServicesScreen: React.FC<Props> = ({ navigation }) => {
           >
             <Text style={styles.bookBtnText}>Book Now</Text>
           </TouchableOpacity>
+        )}
+        {isAdmin && (
+          <View style={styles.adminActions}>
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => navigation.navigate('EditService', { service: item })}
+            >
+              <Text style={styles.actionBtnText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => handleDeleteService(item.id)}
+            >
+              <Text style={styles.actionBtnText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -257,6 +298,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   duration: { color: '#888', fontSize: 13 },
+  adminActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editBtn: {
+    backgroundColor: '#1f8a70',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  deleteBtn: {
+    backgroundColor: '#b33939',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  actionBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   bookBtn: {
     backgroundColor: '#e94560',
     paddingHorizontal: 18,
