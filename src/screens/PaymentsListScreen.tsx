@@ -69,7 +69,7 @@ const PaymentsListScreen: React.FC<Props> = ({ navigation }) => {
   const currency = payments[0]?.currency || 'USD';
   const techPaidPayout = payments
     .filter((p) => p.status === 'paid')
-    .reduce((sum, p) => sum + (p.technicianEarnings ?? p.amount ?? 0), 0);
+    .reduce((sum, p) => sum + (p.technicianEarnings || ((p.total ?? 0) - (p.tax ?? 0))), 0);
   const techPendingPayout = payments
     .filter((p) => p.status === 'pending')
     .reduce((sum, p) => sum + (p.amount ?? 0), 0);
@@ -92,7 +92,7 @@ const PaymentsListScreen: React.FC<Props> = ({ navigation }) => {
       if (Number.isNaN(d.getTime())) return acc;
 
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const payout = p.technicianEarnings ?? p.amount ?? 0;
+      const payout = p.technicianEarnings || ((p.total ?? 0) - (p.tax ?? 0));
 
       if (!acc[key]) {
         acc[key] = { key, label: monthLabel(d), monthPayout: 0 };
