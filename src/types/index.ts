@@ -108,6 +108,8 @@ export interface Payment {
   lineItems: PaymentLineItem[];
   paySlip?: PaymentPaySlip;
   paymentNotes?: string;
+  technicianEarnings?: number;
+  platformFee?: number;
 }
 
 export interface PaymentLineItem {
@@ -124,6 +126,8 @@ export interface FinanceSummaryTotals {
   pendingAmount: number;
   refundedAmount: number;
   failedAmount: number;
+  platformEarnings: number;
+  technicianEarningsTotal: number;
 }
 
 export interface FinanceSummary {

@@ -14,6 +14,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, Service } from '../types';
 import { serviceService } from '../services/serviceService';
+import { authService } from '../services/authService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Services'>;
 
@@ -24,6 +25,7 @@ const ServicesScreen: React.FC<Props> = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -43,6 +45,7 @@ const ServicesScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     fetchData();
+    authService.getCurrentUser().then(u => setUserRole(u?.role || ''));
   }, [fetchData]);
 
   const onRefresh = () => {
@@ -59,11 +62,13 @@ const ServicesScreen: React.FC<Props> = ({ navigation }) => {
     return matchesSearch && matchesCategory;
   });
 
+  const isCustomer = userRole === 'customer';
+
   const renderService = ({ item }: { item: Service }) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => navigation.navigate('ServiceBooking', { service: item })}
-      activeOpacity={0.85}
+      onPress={isCustomer ? () => navigation.navigate('ServiceBooking', { service: item }) : undefined}
+      activeOpacity={isCustomer ? 0.85 : 1}
     >
       <View style={styles.cardTop}>
         <Text style={styles.icon}>{item.icon || '🔧'}</Text>
@@ -81,12 +86,14 @@ const ServicesScreen: React.FC<Props> = ({ navigation }) => {
       </Text>
       <View style={styles.cardFooter}>
         <Text style={styles.duration}>⏱ ~{item.estimatedDuration} mins</Text>
-        <TouchableOpacity
-          style={styles.bookBtn}
-          onPress={() => navigation.navigate('ServiceBooking', { service: item })}
-        >
-          <Text style={styles.bookBtnText}>Book Now</Text>
-        </TouchableOpacity>
+        {isCustomer && (
+          <TouchableOpacity
+            style={styles.bookBtn}
+            onPress={() => navigation.navigate('ServiceBooking', { service: item })}
+          >
+            <Text style={styles.bookBtnText}>Book Now</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
