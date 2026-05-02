@@ -31,20 +31,43 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const loadData = useCallback(async () => {
     try {
       const currentUser = await authService.getCurrentUser();
+      setUser(currentUser);
 
       const isAdmin = currentUser?.role === 'admin';
 
-      const [jobsRes, apptRes, financeRes] = await Promise.all([
+      const [jobsRes, apptRes, financeRes] = await Promise.allSettled([
         jobService.getJobs(1, 5, 'in_progress'),
         appointmentService.getAppointments(1, 5, 'scheduled'),
         isAdmin ? paymentService.getFinanceSummary() : Promise.resolve(null),
       ]);
 
-      setUser(currentUser);
-      setRecentJobs(jobsRes.data);
-      setTodayAppointments(apptRes.data);
-      setFinanceSummary(financeRes);
-    } catch {
+      if (jobsRes.status === 'fulfilled') {
+        setRecentJobs(jobsRes.value.data);
+      } else {
+        setRecentJobs([]);
+        console.log('Dashboard jobs load info:', jobsRes.reason);
+      }
+
+      if (apptRes.status === 'fulfilled') {
+        setTodayAppointments(apptRes.value.data);
+      } else {
+        setTodayAppointments([]);
+        console.log('Dashboard appointments load info:', apptRes.reason);
+      }
+
+      if (financeRes.status === 'fulfilled') {
+        setFinanceSummary(financeRes.value);
+      } else {
+        setFinanceSummary(null);
+        console.log('Dashboard finance load info:', financeRes.reason);
+      }
+
+      const failedCount = [jobsRes, apptRes, financeRes].filter((r) => r.status === 'rejected').length;
+      if (failedCount > 0) {
+        Alert.alert('Warning', 'Some dashboard sections could not be loaded. Pull to refresh and try again.');
+      }
+    } catch (error) {
+      console.log('Dashboard load error:', error);
       Alert.alert('Error', 'Failed to load dashboard data.');
     } finally {
       setLoading(false);
@@ -162,7 +185,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
           // Bar chart data — payment amounts by status
           const barData = [
-            { value: t.paidAmount,     label: 'Paid',     frontColor: '#6a7acb', topLabelComponent: () => <Text style={{ color: '#4cde9a', fontSize: 9 }}>{fmt(t.paidAmount)}</Text> },
+            { value: t.paidAmount,     label: 'Paid',     frontColor: '#2d8a5e', topLabelComponent: () => <Text style={{ color: '#4cde9a', fontSize: 9 }}>{fmt(t.paidAmount)}</Text> },
             { value: t.pendingAmount,  label: 'Pending',  frontColor: '#d4a017', topLabelComponent: () => <Text style={{ color: '#d4a017', fontSize: 9 }}>{fmt(t.pendingAmount)}</Text> },
             { value: t.failedAmount,   label: 'Failed',   frontColor: '#c1440e', topLabelComponent: () => <Text style={{ color: '#c1440e', fontSize: 9 }}>{fmt(t.failedAmount)}</Text> },
             { value: t.refundedAmount, label: 'Refunded', frontColor: '#888',    topLabelComponent: () => <Text style={{ color: '#888', fontSize: 9 }}>{fmt(t.refundedAmount)}</Text> },

@@ -106,7 +106,7 @@ const TechnicianAvailabilityScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert('Saved ✅', 'Your availability has been updated!');
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message || 'Failed to update availability');
-      console.error('Availability update error:', err);
+      console.log('Availability update error:', err);
     } finally {
       setUpdating(false);
     }

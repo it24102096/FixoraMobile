@@ -17,6 +17,7 @@ import { RootStackParamList, Payment, PaymentMethod } from '../types';
 import { paymentService } from '../services/paymentService';
 import { authService } from '../services/authService';
 
+
 type Props = NativeStackScreenProps<RootStackParamList, 'Payment'>;
 
 const PAYMENT_METHODS: { label: string; value: PaymentMethod; icon: string }[] = [
@@ -49,6 +50,7 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCustomer, setIsCustomer] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('card');
   const [cardDetails, setCardDetails] = useState<CardDetails>({
     cardNumber: '',
@@ -86,7 +88,7 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick file. Please try again.');
-      console.error('File picker error:', error);
+      console.log('File picker error:', error);
     }
   }, [bankTransferDetails]);
 
@@ -95,6 +97,7 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
     try {
       const user = await authService.getCurrentUser();
       setIsAdmin(user?.role === 'admin');
+      setIsCustomer(user?.role === 'customer');
 
       let data: Payment;
       if (paymentId) {
@@ -216,7 +219,7 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
     } catch (err: any) {
       const errorMsg = err?.response?.data?.message || 'Could not process payment. Please try again.';
       Alert.alert('Payment Failed', errorMsg);
-      console.error('Payment process error:', err);
+      console.log('Payment process error:', err);
     } finally {
       setProcessing(false);
     }
@@ -245,6 +248,33 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
         },
       },
     ]);
+  };
+
+  const handleDelete = () => {
+    if (!payment) return;
+    Alert.alert(
+      'Delete Invoice',
+      `Are you sure you want to permanently delete Invoice #${payment.invoiceNumber}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setProcessing(true);
+            try {
+              await paymentService.deletePayment(payment.id);
+              Alert.alert('Deleted', 'Invoice has been deleted.');
+              navigation.goBack();
+            } catch (err: any) {
+              Alert.alert('Error', err?.response?.data?.message || 'Failed to delete invoice.');
+            } finally {
+              setProcessing(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (loading) {
@@ -399,8 +429,135 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
             )}
           </View>
 
-          {/* Payment Method Selection */}
-          {payment.status === 'pending' && (
+          {/* ── ADMIN VIEW: read-only status & slip review ── */}
+          {isAdmin && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>📋 Invoice Status</Text>
+
+              {/* Status row */}
+              <View style={styles.statusInfoRow}>
+                <Text style={styles.statusInfoLabel}>Status</Text>
+                <View style={[styles.statusBadge, paymentStatusColor(payment.status)]}>
+                  <Text style={styles.statusText}>{payment.status.toUpperCase()}</Text>
+                </View>
+              </View>
+
+              {/* Method */}
+              {payment.method && (
+                <View style={styles.statusInfoRow}>
+                  <Text style={styles.statusInfoLabel}>Method</Text>
+                  <Text style={styles.statusInfoValue}>{payment.method.replace('_', ' ')}</Text>
+                </View>
+              )}
+
+              {/* Notes */}
+              {payment.paymentNotes ? (
+                <View style={styles.statusInfoRow}>
+                  <Text style={styles.statusInfoLabel}>Notes</Text>
+                  <Text style={styles.statusInfoValue}>{payment.paymentNotes}</Text>
+                </View>
+              ) : null}
+
+              {/* Pay Slip */}
+              {(payment as any).paySlip?.imageData ? (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={[styles.statusInfoLabel, { marginBottom: 8 }]}>📄 Uploaded Slip</Text>
+
+                  {/* Actual slip image */}
+                  <Image
+                    source={{ uri: `data:${(payment as any).paySlip.mimeType || 'image/jpeg'};base64,${(payment as any).paySlip.imageData}` }}
+                    style={styles.adminSlipImage}
+                    resizeMode="contain"
+                  />
+
+                  <View style={styles.slipReviewBox}>
+                    <Text style={styles.slipFileName} numberOfLines={1}>{(payment as any).paySlip.fileName}</Text>
+                    <View style={[
+                      styles.slipStatusBadge,
+                      (payment as any).paySlip.reviewStatus === 'approved'
+                        ? { backgroundColor: '#2d6a4f' }
+                        : (payment as any).paySlip.reviewStatus === 'rejected'
+                        ? { backgroundColor: '#c1440e' }
+                        : { backgroundColor: '#d4a017' },
+                    ]}>
+                      <Text style={styles.slipStatusText}>
+                        {(payment as any).paySlip.reviewStatus?.toUpperCase() ?? 'PENDING'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Approve / Reject buttons for pending slips */}
+                  {(payment as any).paySlip.reviewStatus === 'pending' && (
+                    <View style={styles.slipActionRow}>
+                      <TouchableOpacity
+                        style={styles.approveBtn}
+                        disabled={processing}
+                        onPress={async () => {
+                          setProcessing(true);
+                          try {
+                            const updated = await paymentService.confirmPaySlip(payment.id, true, 'Approved by admin');
+                            setPayment(updated);
+                          } catch (e: any) {
+                            Alert.alert('Error', e?.response?.data?.message || 'Failed to approve slip.');
+                          } finally { setProcessing(false); }
+                        }}
+                      >
+                        {processing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.actionBtnText}>✓ Approve</Text>}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.rejectBtn}
+                        disabled={processing}
+                        onPress={async () => {
+                          setProcessing(true);
+                          try {
+                            const updated = await paymentService.confirmPaySlip(payment.id, false, 'Rejected by admin');
+                            setPayment(updated);
+                          } catch (e: any) {
+                            Alert.alert('Error', e?.response?.data?.message || 'Failed to reject slip.');
+                          } finally { setProcessing(false); }
+                        }}
+                      >
+                        {processing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.actionBtnText}>✗ Reject</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                payment.status === 'pending' && (
+                  <Text style={[styles.statusInfoValue, { marginTop: 8, color: '#888' }]}>
+                    No pay slip uploaded yet.
+                  </Text>
+                )
+              )}
+
+              {/* Refund + Delete buttons for admin */}
+              <View style={styles.adminActionRow}>
+                {payment.status === 'paid' && (
+                  <TouchableOpacity
+                    style={[styles.adminRefundBtn, processing && { opacity: 0.5 }]}
+                    onPress={handleRefund}
+                    disabled={processing}
+                  >
+                    {processing
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <Text style={styles.adminActionBtnText}>↩ Refund</Text>}
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.adminDeleteBtn, processing && { opacity: 0.5 }]}
+                  onPress={handleDelete}
+                  disabled={processing}
+                >
+                  {processing
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.adminActionBtnText}>🗑 Delete</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* ── CUSTOMER VIEW: payment form ── */}
+          {!isAdmin && payment.status === 'pending' && (
             <>
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Payment Method</Text>
@@ -606,8 +763,8 @@ const PaymentScreen: React.FC<Props> = ({ route, navigation }) => {
             </>
           )}
 
-          {/* Refund */}
-          {payment.status === 'paid' && (
+          {/* Refund — customer only */}
+          {isCustomer && payment.status === 'paid' && (
             <TouchableOpacity
               style={[styles.refundBtn, processing && { opacity: 0.5 }]}
               onPress={handleRefund}
@@ -779,6 +936,72 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   emptyText: { color: '#666', fontSize: 15 },
+
+  // Admin status view styles
+  statusInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e2d45',
+  },
+  statusInfoLabel: { color: '#9eb0c3', fontSize: 13 },
+  statusInfoValue: { color: '#fff', fontSize: 13, fontWeight: '600', flexShrink: 1, textAlign: 'right', marginLeft: 12 },
+  adminSlipImage: {
+    width: '100%',
+    height: 220,
+    borderRadius: 10,
+    backgroundColor: '#0f1620',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#1e3050',
+  },
+  slipReviewBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#0f1620',
+    borderRadius: 10,
+    padding: 12,
+  },
+  slipFileName: { color: '#ccc', fontSize: 12, flex: 1, marginRight: 8 },
+  slipStatusBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  slipStatusText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  slipActionRow: { flexDirection: 'row', marginTop: 10, gap: 10 },
+  approveBtn: {
+    flex: 1,
+    backgroundColor: '#2d6a4f',
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  rejectBtn: {
+    flex: 1,
+    backgroundColor: '#c1440e',
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Admin refund / delete
+  adminActionRow: { flexDirection: 'row', marginTop: 16, gap: 10 },
+  adminRefundBtn: {
+    flex: 1,
+    backgroundColor: '#d4a017',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  adminDeleteBtn: {
+    flex: 1,
+    backgroundColor: '#c1440e',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  adminActionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   // Card Form Styles
   cardFormSection: {
