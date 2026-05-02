@@ -32,6 +32,7 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCustomer, setIsCustomer] = useState(false);
   const [showTechnicianModal, setShowTechnicianModal] = useState(false);
   const [availableTechnicians, setAvailableTechnicians] = useState<Technician[]>([]);
   const [loadingTechs, setLoadingTechs] = useState(false);
@@ -45,6 +46,7 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
       ]);
       setJob(data);
       setIsAdmin((user as any)?.role === 'admin');
+      setIsCustomer((user as any)?.role === 'customer');
     } catch {
       Alert.alert('Error', 'Failed to load job details.');
     } finally {
@@ -79,10 +81,6 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         },
       ],
     );
-  };
-
-  const handleCreatePayment = () => {
-    navigation.navigate('Payment', { jobId });
   };
 
   const handleScheduleAppointment = () => {
@@ -149,6 +147,7 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
   }
 
   const nextStatuses = getNextStatuses(job.status);
+  const hideAdminActions = isAdmin && job.status === 'completed';
 
   return (
     <View style={styles.container}>
@@ -218,8 +217,8 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         ) : null}
 
-        {/* Status Actions */}
-        {nextStatuses.length > 0 && (
+        {/* Status Actions — hidden for customers */}
+        {!isCustomer && nextStatuses.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Update Status</Text>
             <View style={styles.actionsRow}>
@@ -246,33 +245,29 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
 
-        {/* Quick Links */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Actions</Text>
-          {isAdmin && (
+        {/* Quick Links — hidden for customers and completed jobs for admin */}
+        {!isCustomer && !hideAdminActions && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Actions</Text>
+            {isAdmin && (
+              <TouchableOpacity
+                style={[styles.linkBtn, styles.linkBtnAdmin]}
+                onPress={handleAssignTechnician}
+                disabled={loadingTechs || assigningTech}
+              >
+                <Text style={styles.linkBtnText}>
+                  {loadingTechs || assigningTech ? '⏳ Loading...' : '👨‍🔧 Assign Technician'}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              style={[styles.linkBtn, styles.linkBtnAdmin]}
-              onPress={handleAssignTechnician}
-              disabled={loadingTechs || assigningTech}
+              style={[styles.linkBtn, isAdmin && { marginTop: 10 }]}
+              onPress={handleScheduleAppointment}
             >
-              <Text style={styles.linkBtnText}>
-                {loadingTechs || assigningTech ? '⏳ Loading...' : '👨‍🔧 Assign Technician'}
-              </Text>
+              <Text style={styles.linkBtnText}>📅 Schedule Appointment</Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={[styles.linkBtn, isAdmin && { marginTop: 10 }]}
-            onPress={handleScheduleAppointment}
-          >
-            <Text style={styles.linkBtnText}>📅 Schedule Appointment</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.linkBtn, { marginTop: 10 }]}
-            onPress={handleCreatePayment}
-          >
-            <Text style={styles.linkBtnText}>💳 View / Create Invoice</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Technician Picker Modal */}

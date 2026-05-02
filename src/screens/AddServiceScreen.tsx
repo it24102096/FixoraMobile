@@ -23,7 +23,7 @@ const AddServiceScreen: React.FC<Props> = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [basePrice, setBasePrice] = useState('');
-  const [estimatedDuration, setEstimatedDuration] = useState('60');
+  const [estimatedDuration, setEstimatedDuration] = useState('1');
   const [icon, setIcon] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -131,14 +131,14 @@ const AddServiceScreen: React.FC<Props> = ({ navigation }) => {
             editable={!loading}
           />
 
-          <Text style={styles.label}>Estimated Duration (minutes) *</Text>
+          <Text style={styles.label}>Estimated Duration (hours) *</Text>
           <TextInput
             style={styles.input}
             value={estimatedDuration}
             onChangeText={setEstimatedDuration}
-            placeholder="60"
+            placeholder="1"
             placeholderTextColor="#6b82a3"
-            keyboardType="number-pad"
+            keyboardType="decimal-pad"
             editable={!loading}
           />
 

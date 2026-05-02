@@ -110,7 +110,7 @@ const ServicesScreen: React.FC<Props> = ({ navigation }) => {
         {item.description}
       </Text>
       <View style={styles.cardFooter}>
-        <Text style={styles.duration}>⏱ ~{item.estimatedDuration} mins</Text>
+        <Text style={styles.duration}>⏱ ~{item.estimatedDuration} hrs</Text>
         {isCustomer && (
           <TouchableOpacity
             style={styles.bookBtn}
