@@ -84,7 +84,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
     try {
       navigation.dispatch(CommonActions.navigate({ name: routeName }));
     } catch (error) {
-      console.error('TechnicianAvailability route not found in current navigator tree', {
+      console.log('TechnicianAvailability route not found in current navigator tree', {
         currentRouteNames,
         parentRouteNames,
         error,
@@ -123,7 +123,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
     } catch (err: any) {
       const errorMsg = err?.response?.data?.message || 'Failed to update profile';
       Alert.alert('Error', errorMsg);
-      console.error('Profile update error:', err);
+      console.log('Profile update error:', err);
     } finally {
       setUpdating(false);
     }

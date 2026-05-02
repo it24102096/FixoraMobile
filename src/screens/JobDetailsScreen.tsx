@@ -106,7 +106,7 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         err?.message ||
         'Failed to load available technicians.';
       Alert.alert('Error', errorMsg);
-      console.error('Technician fetch error:', err);
+      console.log('Technician fetch error:', err);
     } finally {
       setLoadingTechs(false);
     }
@@ -126,7 +126,7 @@ const JobDetailsScreen: React.FC<Props> = ({ route, navigation }) => {
         err?.message ||
         'Failed to assign technician.';
       Alert.alert('Error', errorMsg);
-      console.error('Assignment error:', err);
+      console.log('Assignment error:', err);
     } finally {
       setAssigningTech(false);
     }

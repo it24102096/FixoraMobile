@@ -10,6 +10,7 @@ import {
   Alert,
   StatusBar,
   Image,
+  Platform,
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -36,6 +37,7 @@ interface PaySlipFile {
   name: string;
   type: string;
   size: number;
+  base64?: string;
 }
 
 const ServiceBookingScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -127,14 +129,35 @@ const ServiceBookingScreen: React.FC<Props> = ({ route, navigation }) => {
   // ─── Payment Step ────────────────────────────────────────────────────────────
 
   const handlePickSlip = async () => {
-    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.9 });
+    const result = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.7,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      selectionLimit: 1,
+      includeBase64: true,
+    });
     if (!result.didCancel && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
+      const fileSize = asset.fileSize || 0;
+      const fileType = (asset.type || 'image/jpeg').toLowerCase();
+
+      if (fileSize > 10 * 1024 * 1024) {
+        Alert.alert('File Too Large', 'Please select a slip file smaller than 10MB.');
+        return;
+      }
+
+      if (!(fileType.startsWith('image/') || fileType === 'application/pdf')) {
+        Alert.alert('Invalid File', 'Please select an image or PDF file.');
+        return;
+      }
+
       setPaySlip({
         uri: asset.uri!,
         name: asset.fileName || `slip_${Date.now()}.jpg`,
-        type: asset.type || 'image/jpeg',
-        size: asset.fileSize || 0,
+        type: fileType,
+        size: fileSize,
+        base64: asset.base64 || undefined,
       });
     }
   };
@@ -185,9 +208,13 @@ const ServiceBookingScreen: React.FC<Props> = ({ route, navigation }) => {
         [{ text: 'Done', onPress: () => navigation.navigate('Services') }],
       );
     } catch (err: any) {
-      const errorMsg = err?.response?.data?.message || 'Could not process payment. Please try again.';
+      const errorMsg =
+        err?.response?.data?.message ||
+        (String(err?.message || '').toLowerCase().includes('network request failed')
+          ? 'Upload failed due to network/server connection. Please make sure API is running, then try again.'
+          : 'Could not process payment. Please try again.');
       Alert.alert('Payment Failed', errorMsg);
-      console.error('Service booking payment error:', err);
+      console.log('Service booking payment info:', err?.message || err);
     } finally {
       setPaymentLoading(false);
     }
