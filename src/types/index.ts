@@ -159,14 +159,21 @@ export interface Service {
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high';
 
+export interface TicketUserRef {
+  _id?: string;
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
 export interface SupportTicket {
   id: string;
   subject: string;
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
-  createdBy: string;
-  assignedTo?: string;
+  createdBy: string | TicketUserRef;
+  assignedTo?: string | TicketUserRef | null;
   createdAt: string;
   updatedAt: string;
   messages: TicketMessage[];
@@ -175,10 +182,40 @@ export interface SupportTicket {
 export interface TicketMessage {
   id: string;
   ticketId: string;
-  senderId: string;
-  senderName: string;
+  senderId: string | TicketUserRef;
+  senderName?: string;
   content: string;
   sentAt: string;
+}
+
+export type FeedbackTag =
+  | 'punctual'
+  | 'professional'
+  | 'skilled'
+  | 'friendly'
+  | 'clean'
+  | 'overpriced'
+  | 'late';
+
+export interface FeedbackItem {
+  id: string;
+  jobId: string | { _id?: string; id?: string; title?: string };
+  customerId: string | TicketUserRef;
+  technicianId: string | TicketUserRef;
+  rating: number;
+  comment?: string;
+  tags: FeedbackTag[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EligibleFeedbackJob {
+  id: string;
+  title: string;
+  technicianId: string | TicketUserRef;
+  technicianName: string;
+  updatedAt: string;
+  createdAt: string;
 }
 
 // ─── Navigation Params ───────────────────────────────────────────────────────
