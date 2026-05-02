@@ -242,7 +242,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                   </View>
                   <View style={styles.legendRow}>
-                    <View style={[styles.legendDot, { backgroundColor: '#4cde9a' }]} />
+                    <View style={[styles.legendDot, { backgroundColor: '#4e83ad' }]} />
                     <View>
                       <Text style={styles.legendLabel}>Technician</Text>
                       <Text style={styles.legendValue}>{fmt(t.technicianEarningsTotal || 0)}</Text>
