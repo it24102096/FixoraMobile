@@ -21,6 +21,7 @@ import EditServiceScreen from '../screens/EditServiceScreen';
 import ServiceBookingScreen from '../screens/ServiceBookingScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import TechnicianAvailabilityScreen from '../screens/TechnicianAvailabilityScreen';
+import LeavesScreen from '../screens/LeavesScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -60,6 +61,7 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         <Stack.Screen name="TechnicianAvailability" component={TechnicianAvailabilityScreen} />
+        <Stack.Screen name="Leaves" component={LeavesScreen} />
         <Stack.Screen name="Jobs" component={JobsScreen} />
         <Stack.Screen name="AddService" component={AddServiceScreen} />
         <Stack.Screen name="Services" component={ServicesScreen} />
