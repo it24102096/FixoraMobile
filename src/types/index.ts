@@ -218,14 +218,34 @@ export interface EligibleFeedbackJob {
   createdAt: string;
 }
 
-// ─── Navigation Params ───────────────────────────────────────────────────────
+// ─── Leave Request ────────────────────────────────────────────────────────────────────────────────
+
+export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+
+export interface LeaveRequest {
+  id: string;
+  technicianId: string | { _id?: string; id?: string; name?: string; email?: string };
+  technicianName: string;
+  startDate: string;  // YYYY-MM-DD
+  endDate: string;    // YYYY-MM-DD
+  reason: string;
+  status: LeaveStatus;
+  adminNote?: string;
+  reviewedBy?: string | { _id?: string; id?: string; name?: string } | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Navigation Params ───────────────────────────────────────────────────────────────────────────────
 
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Home: undefined;
   EditProfile: undefined;
-  TechnicianAvailability: undefined;
+  TechnicianAvailability: { initialTab?: 'hours' | 'days' | 'leave' } | undefined;
+  Leaves: undefined;
   Jobs: undefined;
   AddService: undefined;
   Services: undefined;

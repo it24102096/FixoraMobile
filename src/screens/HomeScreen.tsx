@@ -166,11 +166,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             { label: 'Appointments', icon: '📅', screen: 'Appointment' as const },
             { label: 'Payments', icon: '💳', screen: 'PaymentsList' as const },
             { label: 'Support', icon: '💬', screen: 'Support' as const },
+            ...(user?.role === 'admin'
+              ? [{ label: 'Leaves', icon: '🏖️', screen: 'Leaves' as const }]
+              : []),
+            ...(user?.role === 'technician'
+              ? [{ label: 'My Leave', icon: '🏖️', screen: 'TechnicianAvailability' as const, params: { initialTab: 'leave' as const } }]
+              : []),
           ].map(item => (
             <TouchableOpacity
               key={item.label}
               style={styles.navCard}
-              onPress={() => navigation.navigate(item.screen as any)}
+              onPress={() => navigation.navigate(item.screen as any, (item as any).params)}
             >
               <Text style={styles.navIcon}>{item.icon}</Text>
               <Text style={styles.navLabel}>{item.label}</Text>

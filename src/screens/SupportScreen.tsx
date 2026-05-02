@@ -371,6 +371,7 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.filterScrollView}
         contentContainerStyle={styles.filterRow}
       >
         {(['all', 'open', 'in_progress', 'resolved', 'closed'] as TicketStatusFilter[]).map((status) => (
@@ -790,12 +791,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 10,
     gap: 10,
+    justifyContent: 'center',
   },
   topTabBtn: {
-    flex: 1,
     backgroundColor: '#16213e',
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderRadius: 20,
+    paddingVertical: 9,
+    paddingHorizontal: 28,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#284a73',
@@ -817,14 +819,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
   },
-  filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
+  filterScrollView: { flexGrow: 0, height: 44 },
+  filterRow: { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingVertical: 4 },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
     backgroundColor: '#16213e',
     borderWidth: 1,
     borderColor: '#284a73',
+    alignSelf: 'center',
   },
   filterChipActive: {
     backgroundColor: '#e94560',
