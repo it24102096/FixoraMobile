@@ -351,9 +351,12 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Support Center</Text>
-        <TouchableOpacity onPress={() => setView('create')} style={styles.newBtn}>
-          <Text style={styles.newBtnText}>+ New</Text>
-        </TouchableOpacity>
+        {!isAdmin && (
+          <TouchableOpacity onPress={() => setView('create')} style={styles.newBtn}>
+            <Text style={styles.newBtnText}>+ New</Text>
+          </TouchableOpacity>
+        )}
+        {isAdmin && <View style={styles.newBtn} />}
       </View>
 
       {renderTopTabs()}

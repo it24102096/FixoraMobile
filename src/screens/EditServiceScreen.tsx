@@ -25,7 +25,7 @@ const EditServiceScreen: React.FC<Props> = ({ route, navigation }) => {
   const [description, setDescription] = useState(service.description || '');
   const [category, setCategory] = useState(service.category || '');
   const [basePrice, setBasePrice] = useState(String(service.basePrice || ''));
-  const [estimatedDuration, setEstimatedDuration] = useState(String(service.estimatedDuration || '60'));
+  const [estimatedDuration, setEstimatedDuration] = useState(String(service.estimatedDuration || '1'));
   const [icon, setIcon] = useState(service.icon || '');
   const [loading, setLoading] = useState(false);
 
@@ -133,14 +133,14 @@ const EditServiceScreen: React.FC<Props> = ({ route, navigation }) => {
             editable={!loading}
           />
 
-          <Text style={styles.label}>Estimated Duration (minutes) *</Text>
+          <Text style={styles.label}>Estimated Duration (hours) *</Text>
           <TextInput
             style={styles.input}
             value={estimatedDuration}
             onChangeText={setEstimatedDuration}
-            placeholder="60"
+            placeholder="1"
             placeholderTextColor="#6b82a3"
-            keyboardType="number-pad"
+            keyboardType="decimal-pad"
             editable={!loading}
           />
 
