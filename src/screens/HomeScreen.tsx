@@ -11,10 +11,12 @@ import {
   StatusBar,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, Job, Appointment, User } from '../types';
+import { RootStackParamList, Job, Appointment, User, FinanceSummary } from '../types';
 import { authService } from '../services/authService';
 import { jobService } from '../services/jobService';
 import { appointmentService } from '../services/appointmentService';
+import { paymentService } from '../services/paymentService';
+import { BarChart, PieChart } from 'react-native-gifted-charts';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -22,6 +24,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [user, setUser] = useState<User | null>(null);
   const [recentJobs, setRecentJobs] = useState<Job[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
+  const [financeSummary, setFinanceSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -29,14 +32,18 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const currentUser = await authService.getCurrentUser();
 
-      const [jobsRes, apptRes] = await Promise.all([
+      const isAdmin = currentUser?.role === 'admin';
+
+      const [jobsRes, apptRes, financeRes] = await Promise.all([
         jobService.getJobs(1, 5, 'in_progress'),
         appointmentService.getAppointments(1, 5, 'scheduled'),
+        isAdmin ? paymentService.getFinanceSummary() : Promise.resolve(null),
       ]);
 
       setUser(currentUser);
       setRecentJobs(jobsRes.data);
       setTodayAppointments(apptRes.data);
+      setFinanceSummary(financeRes);
     } catch {
       Alert.alert('Error', 'Failed to load dashboard data.');
     } finally {
@@ -147,6 +154,105 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Payment Summary Chart — admin only */}
+        {user?.role === 'admin' && financeSummary && (() => {
+          const t = financeSummary.totals;
+          const fmt = (v: number) => `$${v.toFixed(0)}`;
+
+          // Bar chart data — payment amounts by status
+          const barData = [
+            { value: t.paidAmount,     label: 'Paid',     frontColor: '#6a7acb', topLabelComponent: () => <Text style={{ color: '#4cde9a', fontSize: 9 }}>{fmt(t.paidAmount)}</Text> },
+            { value: t.pendingAmount,  label: 'Pending',  frontColor: '#d4a017', topLabelComponent: () => <Text style={{ color: '#d4a017', fontSize: 9 }}>{fmt(t.pendingAmount)}</Text> },
+            { value: t.failedAmount,   label: 'Failed',   frontColor: '#c1440e', topLabelComponent: () => <Text style={{ color: '#c1440e', fontSize: 9 }}>{fmt(t.failedAmount)}</Text> },
+            { value: t.refundedAmount, label: 'Refunded', frontColor: '#888',    topLabelComponent: () => <Text style={{ color: '#888', fontSize: 9 }}>{fmt(t.refundedAmount)}</Text> },
+          ];
+
+          // Pie chart data — earnings split
+          const pieData = [
+            { value: t.platformEarnings || 0,       color: '#e94560', text: 'Platform' },
+            { value: t.technicianEarningsTotal || 0, color: '#4e83ad', text: 'Technician' },
+          ];
+          const pieTotal = (t.platformEarnings || 0) + (t.technicianEarningsTotal || 0);
+
+          return (
+            <View style={styles.chartSection}>
+              <Text style={styles.chartTitle}>💰 Payment Summary</Text>
+
+              {/* Stat chips */}
+              <View style={styles.chartChips}>
+                <View style={styles.chip}>
+                  <Text style={styles.chipVal}>{t.totalInvoices}</Text>
+                  <Text style={styles.chipLbl}>Invoices</Text>
+                </View>
+                <View style={[styles.chip, { borderColor: '#1e3050' }]}>
+                  <Text style={[styles.chipVal, { color: '#7eb8f7' }]}>{fmt(t.totalAmount)}</Text>
+                  <Text style={styles.chipLbl}>Total</Text>
+                </View>
+                <View style={[styles.chip, { borderColor: '#2d6a4f' }]}>
+                  <Text style={[styles.chipVal, { color: '#4cde9a' }]}>{fmt(t.paidAmount)}</Text>
+                  <Text style={styles.chipLbl}>Collected</Text>
+                </View>
+              </View>
+
+              {/* Bar Chart — amounts by status */}
+              <Text style={styles.chartSubtitle}>Revenue by Status</Text>
+              <View style={styles.chartWrap}>
+                <BarChart
+                  data={barData}
+                  barWidth={38}
+                  spacing={18}
+                  roundedTop
+                  hideRules
+                  xAxisThickness={1}
+                  yAxisThickness={0}
+                  xAxisColor="#1e3050"
+                  yAxisTextStyle={{ color: '#666', fontSize: 10 }}
+                  xAxisLabelTextStyle={{ color: '#aaa', fontSize: 10 }}
+                  noOfSections={4}
+                  maxValue={Math.max(t.paidAmount, t.pendingAmount, t.failedAmount, t.refundedAmount, 1) * 1.2}
+                  barBorderRadius={4}
+                  backgroundColor="transparent"
+                  isAnimated
+                />
+              </View>
+
+              {/* Pie Chart — earnings split */}
+              <Text style={[styles.chartSubtitle, { marginTop: 16 }]}>Earnings Split</Text>
+              <View style={styles.pieRow}>
+                <PieChart
+                  data={pieData}
+                  donut
+                  radius={70}
+                  innerRadius={44}
+                  centerLabelComponent={() => (
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>{fmt(pieTotal)}</Text>
+                      <Text style={{ color: '#888', fontSize: 9 }}>Total</Text>
+                    </View>
+                  )}
+                  isAnimated
+                />
+                <View style={styles.pieLegend}>
+                  <View style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: '#e94560' }]} />
+                    <View>
+                      <Text style={styles.legendLabel}>Platform</Text>
+                      <Text style={styles.legendValue}>{fmt(t.platformEarnings || 0)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.legendRow}>
+                    <View style={[styles.legendDot, { backgroundColor: '#4cde9a' }]} />
+                    <View>
+                      <Text style={styles.legendLabel}>Technician</Text>
+                      <Text style={styles.legendValue}>{fmt(t.technicianEarningsTotal || 0)}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Recent Jobs */}
         <Text style={styles.sectionTitle}>Active Jobs</Text>
@@ -340,6 +446,115 @@ const styles = StyleSheet.create({
   apptTime: { fontSize: 12, color: '#e94560', marginTop: 6, fontWeight: '600' },
   emptyText: { fontSize: 14, color: '#666', marginHorizontal: 16, marginBottom: 12 },
   bottomPadding: { height: 40 },
+  // ── Payment chart ──────────────────────────────────────────────────────────
+  chartSection: {
+    backgroundColor: '#16213e',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1e3050',
+  },
+  chartTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  chartChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  chip: {
+    flex: 1,
+    backgroundColor: '#0f1f38',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1e3050',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  chipVal: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  chipLbl: {
+    color: '#8899aa',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  chartSubtitle: {
+    color: '#aab',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  barLabel: {
+    color: '#ccc',
+    fontSize: 12,
+    width: 68,
+  },
+  barTrack: {
+    flex: 1,
+    height: 10,
+    backgroundColor: '#0f1f38',
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginHorizontal: 8,
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  barValue: {
+    color: '#aaa',
+    fontSize: 11,
+    width: 46,
+    textAlign: 'right',
+  },
+  chartWrap: {
+    alignItems: 'flex-start',
+    marginLeft: -8,
+  },
+  pieRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    marginTop: 4,
+  },
+  pieLegend: {
+    flex: 1,
+    gap: 14,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendLabel: {
+    color: '#aaa',
+    fontSize: 12,
+  },
+  legendValue: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });
 
 export default HomeScreen;
