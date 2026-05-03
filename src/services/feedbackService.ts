@@ -41,6 +41,22 @@ class FeedbackService {
     return items.map(normalizeFeedback);
   }
 
+  async getAllFeedback(): Promise<FeedbackItem[]> {
+    const response = await apiService.get<any>('/feedback/all');
+    const items = Array.isArray(response.data) ? response.data : [];
+    return items.map(normalizeFeedback);
+  }
+
+  async getMyReceivedFeedback(technicianId: string): Promise<{ data: FeedbackItem[]; averageRating: number }> {
+    const response = await apiService.get<any>(`/feedback/technician/${technicianId}`);
+    const raw = response as any;
+    const items = Array.isArray(raw.data) ? raw.data : [];
+    return {
+      data: items.map(normalizeFeedback),
+      averageRating: raw.averageRating ?? 0,
+    };
+  }
+
   async getEligibleJobs(): Promise<EligibleFeedbackJob[]> {
     const response = await apiService.get<any>('/feedback/eligible-jobs');
     const items = Array.isArray(response.data) ? response.data : [];

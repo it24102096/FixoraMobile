@@ -174,6 +174,7 @@ export interface SupportTicket {
   priority: TicketPriority;
   createdBy: string | TicketUserRef;
   assignedTo?: string | TicketUserRef | null;
+  jobId?: string | { id?: string; _id?: string; title?: string; serviceName?: string; technicianId?: string | TicketUserRef } | null;
   createdAt: string;
   updatedAt: string;
   messages: TicketMessage[];

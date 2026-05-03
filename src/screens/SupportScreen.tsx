@@ -26,6 +26,8 @@ import {
 import { supportService } from '../services/supportService';
 import { authService } from '../services/authService';
 import { feedbackService } from '../services/feedbackService';
+import { jobService } from '../services/jobService';
+import { Job } from '../types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Support'>;
 type ScreenView = 'list' | 'detail' | 'create' | 'edit';
@@ -72,6 +74,10 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
   const [newSubject, setNewSubject] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newPriority, setNewPriority] = useState<TicketPriority>('medium');
+  const [newTechnicianName, setNewTechnicianName] = useState('');
+  const [newServiceName, setNewServiceName] = useState('');
+  const [ticketJobs, setTicketJobs] = useState<Job[]>([]);
+  const [ticketJobId, setTicketJobId] = useState('');
 
   const [editSubject, setEditSubject] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -79,6 +85,9 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
 
   const [eligibleJobs, setEligibleJobs] = useState<EligibleFeedbackJob[]>([]);
   const [myFeedback, setMyFeedback] = useState<FeedbackItem[]>([]);
+  const [allFeedback, setAllFeedback] = useState<FeedbackItem[]>([]);
+  const [technicianFeedback, setTechnicianFeedback] = useState<FeedbackItem[]>([]);
+  const [techAvgRating, setTechAvgRating] = useState(0);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState('');
   const [rating, setRating] = useState(5);
@@ -87,6 +96,7 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
 
   const isAdmin = user?.role === 'admin';
   const isCustomer = user?.role === 'customer';
+  const isTechnician = user?.role === 'technician';
 
   const loadTickets = useCallback(async () => {
     try {
@@ -103,25 +113,32 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
   }, [searchText, statusFilter]);
 
   const loadFeedback = useCallback(async () => {
-    if (!isCustomer) return;
-
     setFeedbackLoading(true);
     try {
-      const [eligible, mine] = await Promise.all([
-        feedbackService.getEligibleJobs(),
-        feedbackService.getMyFeedback(),
-      ]);
-      setEligibleJobs(eligible);
-      setMyFeedback(mine);
-      if (!selectedJobId && eligible.length > 0) {
-        setSelectedJobId(eligible[0].id);
+      if (isAdmin) {
+        const all = await feedbackService.getAllFeedback();
+        setAllFeedback(all);
+      } else if (isTechnician && user?.id) {
+        const result = await feedbackService.getMyReceivedFeedback(user.id);
+        setTechnicianFeedback(result.data);
+        setTechAvgRating(result.averageRating);
+      } else if (isCustomer) {
+        const [eligible, mine] = await Promise.all([
+          feedbackService.getEligibleJobs(),
+          feedbackService.getMyFeedback(),
+        ]);
+        setEligibleJobs(eligible);
+        setMyFeedback(mine);
+        if (!selectedJobId && eligible.length > 0) {
+          setSelectedJobId(eligible[0].id);
+        }
       }
     } catch {
       Alert.alert('Error', 'Failed to load feedback data.');
     } finally {
       setFeedbackLoading(false);
     }
-  }, [isCustomer, selectedJobId]);
+  }, [isAdmin, isCustomer, isTechnician, user?.id, selectedJobId]);
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -129,8 +146,12 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
       const currentUser = await authService.getCurrentUser();
       setUser(currentUser);
 
-      const ticketResult = await supportService.getTickets(1, 50);
-      setTickets(ticketResult.data);
+      if (currentUser?.role !== 'technician') {
+        const ticketResult = await supportService.getTickets(1, 50);
+        setTickets(ticketResult.data);
+      } else {
+        setActiveTab('feedback');
+      }
     } catch {
       Alert.alert('Error', 'Failed to load support data.');
     } finally {
@@ -156,6 +177,12 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
       loadFeedback();
     }
   }, [activeTab, loadFeedback]);
+
+  useEffect(() => {
+    if (view === 'create' && isCustomer) {
+      jobService.getJobs(1, 50).then((res) => setTicketJobs(res.data)).catch(() => {});
+    }
+  }, [view, isCustomer]);
 
   const handleOpenTicket = async (ticket: SupportTicket) => {
     try {
@@ -185,15 +212,28 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
 
     setSubmitting(true);
     try {
+      const extraInfo = [
+        newTechnicianName.trim() ? `Technician: ${newTechnicianName.trim()}` : '',
+        newServiceName.trim() ? `Service: ${newServiceName.trim()}` : '',
+      ].filter(Boolean).join('\n');
+
+      const fullDescription = extraInfo
+        ? `${newDescription.trim()}\n\n${extraInfo}`
+        : newDescription.trim();
+
       const created = await supportService.createTicket({
         subject: newSubject.trim(),
-        description: newDescription.trim(),
+        description: fullDescription,
         priority: newPriority,
+        ...(ticketJobId ? { jobId: ticketJobId } : {}),
       });
       setTickets((prev) => [created, ...prev]);
       setNewSubject('');
       setNewDescription('');
       setNewPriority('medium');
+      setNewTechnicianName('');
+      setNewServiceName('');
+      setTicketJobId('');
       setView('list');
     } catch (error: any) {
       const message = error?.response?.data?.message || 'Failed to create ticket.';
@@ -326,15 +366,17 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderTopTabs = () => (
     <View style={styles.topTabsWrap}>
-      <TouchableOpacity
-        style={[styles.topTabBtn, activeTab === 'tickets' && styles.topTabBtnActive]}
-        onPress={() => {
-          setActiveTab('tickets');
-          setView('list');
-        }}
-      >
-        <Text style={[styles.topTabText, activeTab === 'tickets' && styles.topTabTextActive]}>Tickets</Text>
-      </TouchableOpacity>
+      {!isTechnician && (
+        <TouchableOpacity
+          style={[styles.topTabBtn, activeTab === 'tickets' && styles.topTabBtnActive]}
+          onPress={() => {
+            setActiveTab('tickets');
+            setView('list');
+          }}
+        >
+          <Text style={[styles.topTabText, activeTab === 'tickets' && styles.topTabTextActive]}>Tickets</Text>
+        </TouchableOpacity>
+      )}
       <TouchableOpacity
         style={[styles.topTabBtn, activeTab === 'feedback' && styles.topTabBtnActive]}
         onPress={() => setActiveTab('feedback')}
@@ -482,6 +524,28 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.detailSubject}>{selectedTicket.subject}</Text>
           <Text style={styles.detailDesc}>{selectedTicket.description}</Text>
           <Text style={styles.ticketMetaText}>Created by: {getRefName(selectedTicket.createdBy, 'Customer')}</Text>
+          {selectedTicket.assignedTo ? (
+            <Text style={styles.ticketMetaText}>Assigned Technician: {getRefName(selectedTicket.assignedTo, 'Unassigned')}</Text>
+          ) : null}
+          {selectedTicket.jobId && typeof selectedTicket.jobId === 'object' ? (() => {
+            const job = selectedTicket.jobId as any;
+            const techName = typeof job.technicianId === 'object'
+              ? job.technicianId?.name || null
+              : job.technicianId || null;
+            return (
+              <View style={{ backgroundColor: '#1a2a3a', borderRadius: 8, padding: 12, marginTop: 10, marginBottom: 4 }}>
+                <Text style={{ color: '#6b82a3', fontSize: 12, marginBottom: 6, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Related Job</Text>
+                {job.title ? <Text style={{ color: '#ccc', fontSize: 13, marginBottom: 3 }}><Text style={{ color: '#6b82a3' }}>Job: </Text>{job.title}</Text> : null}
+                {job.serviceName ? <Text style={{ color: '#ccc', fontSize: 13, marginBottom: 3 }}><Text style={{ color: '#6b82a3' }}>Service: </Text>{job.serviceName}</Text> : null}
+                <Text style={{ color: '#ccc', fontSize: 13 }}>
+                  <Text style={{ color: '#6b82a3' }}>Technician: </Text>
+                  {techName
+                    ? techName
+                    : <Text style={{ color: '#666' }}>Not yet assigned</Text>}
+                </Text>
+              </View>
+            );
+          })() : null}
 
           {renderStatusControls()}
 
@@ -524,7 +588,8 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
-  const renderCreateTicket = () => (
+  const renderCreateTicket = () => {
+    return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setView('list')} style={styles.backBtn}>
@@ -568,12 +633,31 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
           ))}
         </View>
 
+        <Text style={styles.formLabel}>Technician Name</Text>
+        <TextInput
+          style={styles.formInput}
+          value={newTechnicianName}
+          onChangeText={setNewTechnicianName}
+          placeholder="Enter technician name"
+          placeholderTextColor="#666"
+        />
+
+        <Text style={styles.formLabel}>Service</Text>
+        <TextInput
+          style={styles.formInput}
+          value={newServiceName}
+          onChangeText={setNewServiceName}
+          placeholder="Enter service (e.g. painting, plumbing)"
+          placeholderTextColor="#666"
+        />
+
         <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleCreateTicket} disabled={submitting}>
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Ticket</Text>}
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
+    );
+  };
 
   const renderEditTicket = () => (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -648,10 +732,140 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
 
       {renderTopTabs()}
 
-      {!isCustomer ? (
+      {!isCustomer && !isAdmin && !isTechnician ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>Feedback submission is available for customer accounts.</Text>
+          <Text style={styles.emptyText}>Feedback is not available for this account type.</Text>
         </View>
+      ) : isTechnician ? (
+        feedbackLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#e94560" />
+          </View>
+        ) : (
+          <FlatList
+            data={technicianFeedback}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              <View style={{ paddingHorizontal: 16, paddingTop: 12, marginBottom: 8 }}>
+                <Text style={styles.sectionTitle}>My Received Feedback ({technicianFeedback.length})</Text>
+                {technicianFeedback.length > 0 && (
+                  <Text style={{ color: '#e94560', fontSize: 15, fontWeight: '700', marginTop: 4 }}>
+                    {'★'.repeat(Math.round(techAvgRating))}{'☆'.repeat(5 - Math.round(techAvgRating))}
+                    {'  '}{techAvgRating.toFixed(1)} avg rating
+                  </Text>
+                )}
+              </View>
+            }
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { textAlign: 'center', marginTop: 40 }]}>No feedback received yet.</Text>
+            }
+            renderItem={({ item }) => {
+              const customerName = typeof item.customerId === 'object'
+                ? (item.customerId as any)?.name || 'Customer'
+                : 'Customer';
+              const jobTitle = typeof item.jobId === 'object'
+                ? (item.jobId as any)?.title || ''
+                : '';
+              return (
+                <View style={styles.feedbackCard}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <Text style={styles.feedbackRating}>
+                      {'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}
+                    </Text>
+                    <Text style={styles.feedbackMeta}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                  </View>
+                  <Text style={{ color: '#ccc', fontSize: 13, marginBottom: 2 }}>
+                    <Text style={{ color: '#6b82a3' }}>From: </Text>{customerName}
+                  </Text>
+                  {jobTitle ? (
+                    <Text style={{ color: '#ccc', fontSize: 13, marginBottom: 4 }}>
+                      <Text style={{ color: '#6b82a3' }}>Job: </Text>{jobTitle}
+                    </Text>
+                  ) : null}
+                  {item.tags && item.tags.length > 0 ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                      {item.tags.map((tag) => (
+                        <View key={tag} style={[styles.tagChip, { paddingVertical: 2, paddingHorizontal: 8 }]}>
+                          <Text style={[styles.tagChipText, { fontSize: 11 }]}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  {item.comment ? (
+                    <Text style={styles.feedbackComment}>{item.comment}</Text>
+                  ) : null}
+                </View>
+              );
+            }}
+          />
+        )
+      ) : isAdmin ? (
+        feedbackLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#e94560" />
+          </View>
+        ) : (
+          <FlatList
+            data={allFeedback}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              <Text style={[styles.sectionTitle, { paddingHorizontal: 16, paddingTop: 12 }]}>
+                All Customer Feedback ({allFeedback.length})
+              </Text>
+            }
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { textAlign: 'center', marginTop: 40 }]}>No feedback submitted yet.</Text>
+            }
+            renderItem={({ item }) => {
+              const customerName = typeof item.customerId === 'object'
+                ? (item.customerId as any)?.name || 'Customer'
+                : 'Customer';
+              const techName = typeof item.technicianId === 'object'
+                ? (item.technicianId as any)?.name || 'Technician'
+                : 'Technician';
+              const jobTitle = typeof item.jobId === 'object'
+                ? (item.jobId as any)?.title || ''
+                : '';
+              return (
+                <View style={styles.feedbackCard}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <Text style={styles.feedbackRating}>
+                      {'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}
+                    </Text>
+                    <Text style={styles.feedbackMeta}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                  </View>
+                  <Text style={{ color: '#ccc', fontSize: 13, marginBottom: 2 }}>
+                    <Text style={{ color: '#6b82a3' }}>Customer: </Text>{customerName}
+                  </Text>
+                  <Text style={{ color: '#ccc', fontSize: 13, marginBottom: 2 }}>
+                    <Text style={{ color: '#6b82a3' }}>Technician: </Text>{techName}
+                  </Text>
+                  {jobTitle ? (
+                    <Text style={{ color: '#ccc', fontSize: 13, marginBottom: 4 }}>
+                      <Text style={{ color: '#6b82a3' }}>Job: </Text>{jobTitle}
+                    </Text>
+                  ) : null}
+                  {item.tags && item.tags.length > 0 ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                      {item.tags.map((tag) => (
+                        <View key={tag} style={[styles.tagChip, { paddingVertical: 2, paddingHorizontal: 8 }]}>
+                          <Text style={[styles.tagChipText, { fontSize: 11 }]}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  {item.comment ? (
+                    <Text style={styles.feedbackComment}>{item.comment}</Text>
+                  ) : null}
+                </View>
+              );
+            }}
+          />
+        )
       ) : feedbackLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#e94560" />
@@ -735,6 +949,7 @@ const SupportScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   if (activeTab === 'feedback') return renderFeedbackTab();
+  if (isTechnician) return renderFeedbackTab();
   if (view === 'detail') return renderTicketDetail();
   if (view === 'create') return renderCreateTicket();
   if (view === 'edit') return renderEditTicket();
