@@ -26,6 +26,7 @@ const normalizeTicket = (ticket: any): SupportTicket => ({
   priority: ticket?.priority || 'medium',
   createdBy: ticket?.createdBy || '',
   assignedTo: ticket?.assignedTo || null,
+  jobId: ticket?.jobId || null,
   createdAt: ticket?.createdAt || new Date().toISOString(),
   updatedAt: ticket?.updatedAt || new Date().toISOString(),
   messages: Array.isArray(ticket?.messages)
@@ -61,7 +62,7 @@ class SupportService {
   }
 
   async createTicket(
-    payload: Pick<SupportTicket, 'subject' | 'description' | 'priority'>,
+    payload: Pick<SupportTicket, 'subject' | 'description' | 'priority'> & { jobId?: string },
   ): Promise<SupportTicket> {
     const response = await apiService.post<any>(
       '/support/tickets',

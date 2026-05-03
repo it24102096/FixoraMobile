@@ -1,7 +1,12 @@
 import React from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
+
+LogBox.ignoreLogs([
+  'VirtualizedList: You have a large list that is slow to update',
+  'Cannot connect to Metro',
+]);
 
 function App(): React.JSX.Element {
   return (
