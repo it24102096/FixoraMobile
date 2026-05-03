@@ -7,6 +7,7 @@ import { RootStackParamList } from '../types';
 import { authService } from '../services/authService';
 
 import LoginScreen from '../screens/LoginScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import JobsScreen from '../screens/JobsScreen';
@@ -57,6 +58,7 @@ const AppNavigator: React.FC = () => {
         }}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
