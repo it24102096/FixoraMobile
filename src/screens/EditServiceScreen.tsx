@@ -63,7 +63,7 @@ const EditServiceScreen: React.FC<Props> = ({ route, navigation }) => {
       Alert.alert('Success', 'Service updated successfully.', [
         {
           text: 'OK',
-          onPress: () => navigation.goBack(),
+          onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'),
         },
       ]);
     } catch (error: any) {
@@ -83,7 +83,7 @@ const EditServiceScreen: React.FC<Props> = ({ route, navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <Text style={styles.title}>Edit Service</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} disabled={loading}>
+          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home')} disabled={loading}>
             <Text style={styles.closeText}>Close</Text>
           </TouchableOpacity>
         </View>

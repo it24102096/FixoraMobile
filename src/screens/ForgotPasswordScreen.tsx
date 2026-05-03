@@ -64,7 +64,7 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor="#071428" />
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Login')}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
 

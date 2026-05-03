@@ -128,7 +128,7 @@ const LeavesScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home')} style={styles.backBtn}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Leave Requests</Text>

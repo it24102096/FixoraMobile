@@ -61,7 +61,7 @@ const AddServiceScreen: React.FC<Props> = ({ navigation }) => {
       Alert.alert('Success', 'Service created successfully.', [
         {
           text: 'OK',
-          onPress: () => navigation.goBack(),
+          onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home'),
         },
       ]);
     } catch (error: any) {
@@ -81,7 +81,7 @@ const AddServiceScreen: React.FC<Props> = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <Text style={styles.title}>Add New Service</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} disabled={loading}>
+          <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home')} disabled={loading}>
             <Text style={styles.closeText}>Close</Text>
           </TouchableOpacity>
         </View>
