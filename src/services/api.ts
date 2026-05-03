@@ -1,12 +1,12 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL, API_TIMEOUT, REACT_APP_API_BASE_URL } from '@env';
 import { ApiResponse, PaginatedResponse } from '../types';
-import { API_BASE_URL, API_TIMEOUT } from '../config/env';
 
 // ─── Configuration ──────────────────────────────────────────────────────
 
-const BASE_URL = API_BASE_URL; // Configured via config/env.ts
-const TIMEOUT = API_TIMEOUT;
+const BASE_URL = (API_BASE_URL || REACT_APP_API_BASE_URL || '').trim();
+const TIMEOUT = Number(API_TIMEOUT) > 0 ? Number(API_TIMEOUT) : 15000;
 
 // ─── Axios Instance ──────────────────────────────────────────────────────────
 
@@ -32,6 +32,13 @@ apiClient.interceptors.request.use(
     if (config.data instanceof FormData && config.headers) {
       delete config.headers['Content-Type'];
     }
+
+    if (__DEV__) {
+      const method = (config.method || 'GET').toUpperCase();
+      const reqUrl = `${config.baseURL || ''}${config.url || ''}`;
+      // Useful during mobile debugging when DevTools Network tab is empty.
+      console.log(`[API] ${method} ${reqUrl}`);
+    }
     
     return config;
   },
@@ -43,6 +50,14 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error) => {
+    if (__DEV__) {
+      const method = (error?.config?.method || 'GET').toUpperCase();
+      const reqUrl = `${error?.config?.baseURL || ''}${error?.config?.url || ''}`;
+      const status = error?.response?.status;
+      const message = error?.response?.data?.message || error?.message;
+      console.log(`[API ERROR] ${method} ${reqUrl} | status=${status || 'N/A'} | ${message}`);
+    }
+
     if (error.response?.status === 401) {
       // Token expired – clear storage (navigation handled by AuthService)
       await AsyncStorage.removeItem('auth_token');
