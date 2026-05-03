@@ -222,7 +222,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
           <View style={styles.signInContainer}>
             <Text style={styles.signInText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.goBack()} disabled={loading}>
+            <TouchableOpacity onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Login')} disabled={loading}>
               <Text style={styles.signInLink}>Sign In</Text>
             </TouchableOpacity>
           </View>

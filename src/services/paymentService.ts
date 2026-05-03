@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL, REACT_APP_API_BASE_URL } from '@env';
 import { apiService } from './api';
-import { API_BASE_URL } from '../config/env';
 import { FinanceSummary, Payment, PaymentMethod, PaginatedResponse } from '../types';
 
 interface PaySlipFile {
@@ -71,7 +71,8 @@ class PaymentService {
   }
 
   async uploadPaySlip(paymentId: string, paySlip: PaySlipFile, notes: string): Promise<Payment> {
-    const uploadUrl = `${API_BASE_URL}/payments/${paymentId}/upload-slip`;
+    const resolvedApiBaseUrl = (API_BASE_URL || REACT_APP_API_BASE_URL || '').trim();
+    const uploadUrl = `${resolvedApiBaseUrl}/payments/${paymentId}/upload-slip`;
     const token = await AsyncStorage.getItem('auth_token');
     const executeUpload = async (): Promise<Payment> => {
       const formData = buildSlipFormData(paySlip, notes);

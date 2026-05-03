@@ -15,10 +15,12 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { authService } from '../services/authService';
+import { API_BASE_URL, REACT_APP_API_BASE_URL } from '@env';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
+  const resolvedApiBaseUrl = (API_BASE_URL || REACT_APP_API_BASE_URL || '').trim();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +39,12 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       await authService.login({ email: email.trim(), password });
       navigation.replace('Home');
     } catch (error: any) {
-      const message = error?.response?.data?.message || 'Login failed. Please check your credentials.';
+      const backendMessage = error?.response?.data?.message;
+      const isNetworkError = !error?.response;
+      const message = backendMessage
+        || (isNetworkError
+          ? `Cannot reach server. Check API URL: ${resolvedApiBaseUrl || '(missing in .env)'}`
+          : 'Login failed. Please check your credentials.');
       setErrorMsg(message);
     } finally {
       setLoading(false);
