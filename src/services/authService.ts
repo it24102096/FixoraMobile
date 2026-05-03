@@ -86,13 +86,9 @@ class AuthService {
 
   // ─── Password ─────────────────────────────────────────────────────────────
 
-  async requestPasswordReset(email: string): Promise<void> {
-    await apiService.post('/auth/password-reset', { email });
-  }
-
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    await apiService.post('/auth/password-reset/confirm', {
-      token,
+  async resetPassword(email: string, newPassword: string): Promise<void> {
+    await apiService.post('/auth/password-reset', {
+      email,
       newPassword,
     });
   }

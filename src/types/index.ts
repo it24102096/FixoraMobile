@@ -242,6 +242,7 @@ export interface LeaveRequest {
 
 export type RootStackParamList = {
   Login: undefined;
+  ForgotPassword: undefined;
   Register: undefined;
   Home: undefined;
   EditProfile: undefined;
